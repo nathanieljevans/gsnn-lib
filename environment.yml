@@ -1,0 +1,39 @@
+# primary environment 
+
+name: gsnn
+
+channels: 
+    - pytorch 
+    - nvidia 
+    - pyg
+    - conda-forge
+    - mcs07
+    - defaults 
+
+dependencies:
+    - python=3.12
+    - matplotlib
+    - pubchempy
+    - pyg
+    - pytorch
+    - pytorch-cuda
+    - seaborn
+    - scikit-learn
+    - h5py
+    - scipy
+    - tensorboard
+    - shapely
+    - statsmodels
+    - rdkit
+    - shap
+    - pip
+    - pip:
+        - tensorboardX
+        - ipykernel
+        - umap-learn
+        - biopython
+        - obonet
+        - omnipath 
+        - adjustText
+        - torch-sparse 
+        - torch-scatter
