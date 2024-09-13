@@ -3,6 +3,7 @@
 # ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $BATCH $GPU
 # ./batched_gsnn.sh ../output/exp1-1/proc/ ../output/gpu_test/ 10 00:10:00 8G 50 gpu:rtx2080:1 
 
+# COMMANDLINE INPUTS
 PROC=$1   # path to processed data directory 
 OUT=$2    # path to output directory 
 EPOCHS=$3 # number of training epochs to run 
@@ -11,6 +12,14 @@ MEM=$5    # amount of memory to request for the slurm job (GB); should be in for
 BATCH=$6  # batch size to use, smaller batches will use less memory, but may affect optimization results. 
 GPU=$7    # gpu to request for the slurm job; should be in format: #SBATCH "gpu:rtx2080:1" -> 1 rtx2080 GPU 
 FOLD_DIR=$8 
+N=$9      # number of jobs for h param search to submit
+
+# parameter search grid
+lr_list=("0.01" "0.001")
+do_list=("0" "0.1")
+c_list=("10" "20")
+lay_list=("10" "20")
+ase_list=("" "--add_function_self_edges")
 
 mkdir $OUT
 
@@ -33,20 +42,21 @@ else
 fi
 
 jobid=0
-# LIMITED HYPER-PARAMETER GRID SEARCH 
-for lr in 0.01 0.001; do
-    for do in 0 0.1; do
-        for c in 10 20; do
-	    for lay in 10 20; do
-                for ase in "" "--add_function_self_edges"; do
+# LIMITED HYPER-PARAMETER SEARCH 
+for ((i=1; i<=N; i++)); do
+        lr=$(echo "${lr_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        do=$(echo "${do_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        c=$(echo "${c_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        lay=$(echo "${lay_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        ase=$(echo "${ase_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
-jobid=$((jobid+1))
+        jobid=$((jobid+1))
 
-echo "submitting job: GSNN  (lr=$lr, do=$do, c=$c)"
+        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase)"
 
-# SUBMIT SBATCH JOB 
+        # SUBMIT SBATCH JOB 
 
-sbatch <<EOF
+        sbatch <<EOF
 #!/bin/bash
 #SBATCH --job-name=gsnn$jobid
 #SBATCH --nodes=1

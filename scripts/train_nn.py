@@ -8,12 +8,11 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score
 import pandas as pd
 
-
 import sys 
 sys.path.append('../.')
-from src.models.NN import NN
-from src.data.LincsDataset import LincsDataset
-from src.models import utils 
+from gsnn.models.NN import NN
+from gsnn.data.LincsDataset import LincsDataset
+from gsnn.models import utils 
 
 def get_args(): 
     parser = argparse.ArgumentParser()
@@ -78,9 +77,6 @@ def get_args():
     parser.add_argument("--save_every", type=int, default=10,
                         help="saves model results and weights every X epochs")
     
-    parser.add_argument("--distillation", type=str, default='none',
-                        help="The path to another model to do joint learning with LINCS and knowledge distillation.")
-    
     return parser.parse_args()
     
 
@@ -118,37 +114,32 @@ if __name__ == '__main__':
     args.device = device
     print('using device:', device)
 
-    data = torch.load(f'{args.data}/Data.pt')
+    siginfo = pd.read_csv(f'{args.siginfo}/siginfo_beta.txt', sep='\t', low_memory=False)
+    data = torch.load(f'{args.data}/data.pt')
 
     train_ids = np.load(f'{args.fold}/lincs_train_obs.npy', allow_pickle=True)
-    train_dataset = LincsDataset(root=f'{args.data}', sig_ids=train_ids, data=data)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=True)
+    train_dataset = LincsDataset(root=f'{args.data}', sig_ids=train_ids, data=data, siginfo=siginfo)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=True, persistent_workers=True)
 
     test_ids = np.load(f'{args.fold}/lincs_test_obs.npy', allow_pickle=True)
-    test_dataset = LincsDataset(root=f'{args.data}', sig_ids=test_ids, data=data)
+    test_dataset = LincsDataset(root=f'{args.data}', sig_ids=test_ids, data=data, siginfo=siginfo)
     test_loader = DataLoader(test_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=False)
 
     val_ids = np.load(f'{args.fold}/lincs_val_obs.npy', allow_pickle=True)
-    val_dataset = LincsDataset(root=f'{args.data}', sig_ids=val_ids, data=data)
+    val_dataset = LincsDataset(root=f'{args.data}', sig_ids=val_ids, data=data, siginfo=siginfo)
     val_loader = DataLoader(val_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=False)
 
     if args.cell_agnostic: 
-        # remove all omic input nodes 
-        data.input_node_mask = torch.tensor(['DRUG__' in x for x in data.node_names], dtype=torch.bool)
-    torch.save(data, out_dir + '/Data.pt')
+        raise Exception('not functional')
+    
+    #torch.save(data, out_dir + '/Data.pt')
 
-    model = NN(in_channels=int(data.input_node_mask.sum().item()), 
+    model = NN(in_channels=len(data.node_names_dict['input']), 
                 hidden_channels=args.channels, 
-                out_channels=int(data.output_node_mask.sum().item()), 
+                out_channels=len(data.node_names_dict['output']), 
                 layers=args.layers, 
                 dropout=args.dropout, 
                 nonlin=utils.get_activation(args.nonlin)).to(device)
-    
-    if args.distillation != 'none': 
-        distil = True
-        teacher = torch.load(args.distillation).eval().to(device)
-    else: 
-        distil = False
             
     n_params = sum([p.numel() for p in model.parameters()])
     args.n_params = n_params
@@ -160,8 +151,6 @@ if __name__ == '__main__':
     logger = utils.TBLogger(out_dir + '/tb/')
 
     siginfo = pd.read_csv(f'{args.siginfo}/siginfo_beta.txt', sep='\t', low_memory=False)
-
-    _drug_mask = torch.tensor([i for i,_ in enumerate(data.node_names) if 'DRUG__' in _], dtype=torch.long).to(device)
 
     for epoch in range(1, args.epochs+1):
         big_tic = time.time()
@@ -176,22 +165,11 @@ if __name__ == '__main__':
             tic = time.time()
             optim.zero_grad() 
 
-            x_ = x[:, data.input_node_mask].to(device).squeeze(-1)
-            yhat = model(x_)
-            y = y.to(device).squeeze(-1)[:, data.output_node_mask]
+            x = x.to(device)
+            yhat = model(x)
+            y = y.to(device)
 
             loss = crit(yhat, y)
-
-            if distil: # knowledge distillation 
-                with torch.no_grad(): 
-                    # randomly choose two drugs - and concs 
-                    x_teacher = x.to(device)
-                    x_teacher[:, _drug_mask, :] *= 0 # set current drug values to zero 
-                    drug_idxs = _drug_mask[torch.randint(0, len(_drug_mask), size=(x_teacher.size(0), 1), device=device)]  # sample new drug idxs and grab indices 
-                    drug_concs = torch.rand((x_teacher.size(0), 1, 1), device=device) # sample new drug concentration values 
-                    x_teacher[:, drug_idxs] += drug_concs      # set values - error resolved
-                    yhat_teacher = teacher(x_teacher)[:, data.output_node_mask]
-                loss += 0.1*crit(yhat, yhat_teacher)
 
             loss.backward()
             if args.clip_grad is not None: torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad)
@@ -211,7 +189,7 @@ if __name__ == '__main__':
         
         loss_train = np.mean(losses)
 
-        y,yhat,sig_ids = utils.predict_nn(val_loader, model, data, device)
+        y,yhat,sig_ids = utils.predict_nn(val_loader, model, device, verbose=False)
         r_cell, r_drug, r_dose = utils._get_regressed_metrics(y, yhat, sig_ids, siginfo)
         r2_val = r2_score(y, yhat, multioutput='variance_weighted')
         r_flat_val = np.corrcoef(y.ravel(), yhat.ravel())[0,1]

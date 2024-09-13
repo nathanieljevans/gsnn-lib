@@ -109,15 +109,28 @@ def get_args():
     parser.add_argument("--init", type=str, default='kaiming',
                         help="weight initialization strategy: 'xavier'-or-'glorot', 'kaiming'-or-'he', 'lecun', normal'")
     
+    parser.add_argument("--edge_channels", type=int, default=1,
+                        help="number of duplicate edges to make additional edge latent channels; 1 will not duplicate")
+    
+    parser.add_argument("--dropout_type", type=str, default='node',
+                        help="dropout style to use [node, channel]")
+    
+    parser.add_argument("--use_subgraphs", action='store_true',
+                        help="whether to use drug-specific forward pass subgraphs.")
+    
     args = parser.parse_args()
 
     return args
 
-def step(model, x, y, crit, args): 
+def step(model, x, y, subgraph, crit, args): 
     '''run one gradient descent step'''
     model.train()
     optim.zero_grad()
-    yhat = model(x)
+    
+    if args.use_subgraph: 
+        yhat = model(x, subgraph)
+    else: 
+        yhat = model(x)
     loss = crit(yhat, y)
 
     loss.backward()
@@ -179,6 +192,12 @@ if __name__ == '__main__':
 
     torch.save(data, out_dir + '/Data.pt')
 
+    if args.use_subgraphs: 
+        print('using drug-specific subgraphs; NOTE: this is not identical to full-graph prediction as some omics may be excluded')
+        subgraph_dict = data.subgraph_dict 
+    else: 
+        subgraph_dict = None
+
     model = GSNN(edge_index_dict                 = data.edge_index_dict, 
                  node_names_dict                 = data.node_names_dict,
                 channels                        = args.channels, 
@@ -193,7 +212,10 @@ if __name__ == '__main__':
                 add_function_self_edges         = args.add_function_self_edges,
                 norm                            = args.norm,
                 init                            = args.init,
-                checkpoint                      = args.checkpoint).to(device)
+                checkpoint                      = args.checkpoint,
+                edge_channels                   = args.edge_channels,
+                dropout_type                    = args.dropout_type, 
+                subgraph_dict                   = subgraph_dict).to(device)
         
     n_params = sum([p.numel() for p in model.parameters()])
     args.n_params = n_params
@@ -214,7 +236,7 @@ if __name__ == '__main__':
         big_tic = time.time()
         model = model.train()
         losses = []
-        for i,(x, y, sig_id) in enumerate(train_loader): 
+        for i,(x, y, sig_id, subgraph) in enumerate(train_loader): 
             tic = time.time()
 
             if len(sig_id) == 1: continue # BUG workaround: if batch only has 1 obs it fails
@@ -225,6 +247,7 @@ if __name__ == '__main__':
             loss, yhat = step(model, 
                                 x, 
                                 y, 
+                                subgraph,
                                 crit, 
                                 args)
 

@@ -86,16 +86,17 @@ if __name__ == '__main__':
         train_mask = ~(test_mask | val_mask)
         train_ixs = train_mask.nonzero()
 
-        train_cells = data.cellspace[train_ixs]
-        test_cells = data.cellspace[test_ixs]
-        val_cells = data.cellspace[val_ixs]
+        train_cells = np.array(data.cellspace)[train_ixs]
+        test_cells = np.array(data.cellspace)[test_ixs]
+        val_cells = np.array(data.cellspace)[val_ixs]
 
         train_obs = siginfo[lambda x: x.cell_iname.isin(train_cells)].sig_id.values
         test_obs = siginfo[lambda x: x.cell_iname.isin(test_cells)].sig_id.values
         val_obs = siginfo[lambda x: x.cell_iname.isin(val_cells)].sig_id.values
 
         # check if there are any drugs that ONLY appearn in test or val. 
-        test_val_drugs = set(data.drugspace) - set(siginfo[lambda x: x.cell_iname.isin(train_cells)].pert_id.unique().tolist())
+        drugspace = [x.split('__')[1] for x in data.node_names_dict['input'] if 'DRUG__' in x]
+        test_val_drugs = set(drugspace) - set(siginfo[lambda x: x.cell_iname.isin(train_cells)].pert_id.unique().tolist())
 
         if len(test_val_drugs) > 0: 
             print(f'\tWARNING: There are {len(test_val_drugs)} drugs that only appear in test/val sets; removing these observations from test/val; NOTE: drug nodes will remain.')
