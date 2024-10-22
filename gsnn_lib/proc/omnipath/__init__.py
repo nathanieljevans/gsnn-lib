@@ -1,0 +1,1 @@
+from gsnn_lib.proc.omnipath.get_interactions import *

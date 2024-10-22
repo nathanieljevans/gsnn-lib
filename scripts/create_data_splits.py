@@ -8,8 +8,8 @@ import os
 
 import sys 
 sys.path.append('../')
-from gsnn.proc.data_split import create_data_splits, keys2sids
-from gsnn.proc import utils
+from gsnn_lib.proc.lincs.data_split import create_data_splits, keys2sids
+from gsnn_lib.proc.lincs import utils
 
 def get_args(): 
     parser = argparse.ArgumentParser()

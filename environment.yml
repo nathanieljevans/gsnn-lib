@@ -1,6 +1,6 @@
 # primary environment 
 
-name: gsnn
+name: gsnn-lib
 
 channels: 
     - pytorch 
@@ -37,3 +37,6 @@ dependencies:
         - adjustText
         - torch-sparse 
         - torch-scatter
+        - scperturb
+        - pykeops
+        - geomloss

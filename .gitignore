@@ -4,3 +4,10 @@
 /output/
 scripts/experiments/SLURM_OUT/
 *.pyc
+
+/ExpRec*
+/gsnn_lib.egg-info
+
+/sc_data
+/sc_output
+/sc_output_not
