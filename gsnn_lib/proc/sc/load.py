@@ -23,45 +23,6 @@ def load_scp_dataset(data='../../../data/', dataset='SrivatsanTrapnell2020_scipl
 
     return adata
 
-def get_AissaBenevolenskaya2021(genespace=None, data='../../../data/', max_prct_ribo=100, max_prct_mito=100, min_ngenes_per_cell=100, 
-                     min_cells_per_gene=500, time=72, min_ncounts=100):
-    '''
-    
-    ''' 
-
-    dataset = 'AissaBenevolenskaya2021'
-
-    adata = load_scp_dataset(data, dataset)
-
-    # filter gene vars by cell count 
-    adata = adata[:, adata.var.ncells > min_cells_per_gene]
-
-    # filter cells by gene count 
-    adata = adata[adata.obs.ngenes > min_ngenes_per_cell]
-
-    # filter high ribo 
-    adata = adata[adata.obs.percent_ribo <= max_prct_ribo]
-
-    # filter high mito 
-    adata = adata[adata.obs.percent_mito <= max_prct_mito]
-
-    # filter cells by ncounts 
-    adata = adata[adata.obs.ncounts >= min_ncounts]
-
-    # ensure critical attribures are not nan 
-    adata = adata[~adata.obs.time.isnull()]
-
-    # filter to time point 
-    if time is not None: 
-        adata = adata[adata.obs.time == time]
-
-    if genespace is not None: 
-        adata = adata[:, adata.var.ensembl_id.isin(genespace)]
-
-
-    return adata
-
-
 def select_most_perturbed_genes(adata, N=1000, K=100, alpha=0.1):
     # assumes data has been zscore already 
 
@@ -89,13 +50,12 @@ def select_most_perturbed_genes(adata, N=1000, K=100, alpha=0.1):
     return adata[:, rank_idxs[:N]]
 
 
-
 def get_SrivatsanTrapnell2020(genespace=None, data='../../../data/', extdata='../../extdata/',
                      max_prct_ribo=0.05, max_prct_mito=0.05, min_ngenes_per_cell=250, 
                      min_cells_per_gene=10000, time=24, min_ncounts_per_obs=1000, 
                      n_top_variable_genes=1000):
     '''
-    Sciplex3 dataset (~147 drugs with known targets)
+    Sciplex3 dataset (~147 drugs with known targets / ~81 that are accessible with omnipath data)
     # TODO: compare to https://github.com/facebookresearch/CPA/blob/main/preprocessing/sciplex3.ipynb
     '''
     
@@ -155,6 +115,8 @@ def get_SrivatsanTrapnell2020(genespace=None, data='../../../data/', extdata='..
     # remove low var genes and select most perturbed genes
     print('pre-filter # vars:', adata.var.shape[0])
     sc.pp.highly_variable_genes(adata, subset=True, min_disp=0.5, min_mean=0.0125)
+
+    # select most perturbed genes 
     print('post var filter # vars:', adata.var.shape[0])
     if adata.var.shape[0] > n_top_variable_genes:
         adata = select_most_perturbed_genes(adata, N=n_top_variable_genes)

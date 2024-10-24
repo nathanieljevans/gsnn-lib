@@ -12,6 +12,7 @@ class scSampler:
 
         self.root = root 
         data = torch.load(root + '/data.pt')
+        self.data = data
         self.dose_f_dict = data['x_dict']['drug_dict'] # dict to function: dose_f_dict[drug][dose_value_um] -> x_drug_inputs
 
         obs = os.listdir(self.root + '/PROC/')
@@ -47,22 +48,41 @@ class scSampler:
         else:
             self.meta = self.meta.assign(val=False)
         
+        self.drug_idxs = torch.tensor([i for i,n in enumerate(data['node_names_dict']['input']) if 'DRUG_' in n], dtype=torch.long)
+        self.n_drugs = len(self.drug_idxs)
+        self.n_cell_lines = len(self.conditions.cell_line.unique())
+        self.cell2onehot = {cell:x for cell,x in zip(self.conditions.cell_line.unique(), torch.eye(self.n_cell_lines))}
+        
     def __len__(self): 
         return self.conditions.shape[0]
+    
+    def sample(self, batch_size, partition='train'):
 
-    def sample(self, idx, batch_size=64, partition='train'): 
+        cond_idxs = torch.randint(0, len(self), size=(batch_size,))    
+        x=[]; y=[]; x_cell=[]; x_drug=[]; y0=[]
+        for idx in cond_idxs:
+            xx ,yy, xx_cell, xx_drug, yy0 = self.sample_(idx.item(), batch_size=1, partition=partition)
+            x.append(xx)
+            y.append(yy)
+            x_cell.append(xx_cell)
+            x_drug.append(xx_drug)
+            y0.append(yy0)
+        return torch.cat(x, dim=0), torch.cat(y, dim=0), torch.cat(x_cell, dim=0), torch.cat(x_drug, dim=0), torch.cat(y0, dim=0)
+
+
+    def sample_(self, idx, batch_size=64, partition='train', ret_all_y=False): 
         # TODO: Test that this is selecting appropriately 
         condition = self.conditions.iloc[idx]
         cell_line = condition.cell_line 
         pert_id = condition.drug
-        dose = condition.dose / 1e6 # dose is in molars (conversion expects uM)
+        dose = condition.dose / 1e3 # dose is in nanomolars (conversion expects uM)
         self.controls.loc[cell_line]
         perts = self.meta.iloc[condition.id]
         ctrls = self.meta.iloc[self.controls.loc[cell_line].id]
 
         if partition == 'train': 
-            perts = perts[lambda x: ~x.test]
-            ctrls = ctrls[lambda x: ~x.test]
+            perts = perts[lambda x: (~x.test) & (~x.val)]
+            ctrls = ctrls[lambda x: (~x.test) & (~x.val)]
         elif partition == 'test':
             perts = perts[lambda x: x.test]
             ctrls = ctrls[lambda x: x.test]
@@ -76,7 +96,7 @@ class scSampler:
             if perts.shape[0] < batch_size: 
                 batch_size = perts.shape[0]
             
-            perts = perts.sample(n=batch_size, replace=False, axis=0)
+            if not ret_all_y: perts = perts.sample(n=batch_size, replace=False, axis=0)
 
             if ctrls.shape[0] < batch_size:
                 ctrls = ctrls.sample(n=batch_size, replace=True, axis=0) # this is unlikely to occur
@@ -91,11 +111,22 @@ class scSampler:
             x.append(xx)
         x = torch.stack(x, dim=0)
 
+        x_drug = x[:, self.drug_idxs]
+        x_cell = self.cell2onehot[cell_line].unsqueeze(0).expand(x.size(0), -1)
+
         # load outputs 
         y = [] 
         for fpath in perts.fpath: 
             y.append(torch.load(fpath))
         y = torch.stack(y, dim=0)
 
-        return x,y 
+        y0 = x[:, self.data.X2Y0_idxs]
+        # X,y, x_cell, x_drug, y0
+        return x ,y, x_cell, x_drug, y0
         
+
+
+'''
+
+
+'''
