@@ -10,3 +10,5 @@ scripts/experiments/SLURM_OUT/
 
 /sc_data
 /sc_output*
+
+/proc/

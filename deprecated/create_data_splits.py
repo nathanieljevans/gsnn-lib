@@ -11,6 +11,15 @@ sys.path.append('../')
 from gsnn_lib.proc.lincs.data_split import create_data_splits, keys2sids
 from gsnn_lib.proc.lincs import utils
 
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message="You are using `torch.load` with `weights_only=False`.*"
+)
+
+# TODO get rid of inclusion criteria and do k-fold cross validation
+
 def get_args(): 
     parser = argparse.ArgumentParser()
 
@@ -104,8 +113,8 @@ if __name__ == '__main__':
             val_obs = siginfo[lambda x: x.cell_iname.isin(val_cells) & (~x.pert_id.isin(test_val_drugs))].sig_id.values
 
         print(f'\t# train cell lines (# obs): {len(train_cells)} ({len(train_obs)})')
-        print(f'\t# test cell lines (# obs): {len(test_cells)} ({len(test_obs)})')
-        print(f'\t# val cell lines (# obs): {len(val_cells)} ({len(val_obs)})')
+        print(f'\t# test cell lines  (# obs): {len(test_cells)} ({len(test_obs)})')
+        print(f'\t# val cell lines   (# obs): {len(val_cells)} ({len(val_obs)})')
 
         assert len(set(list(train_cells)).intersection(set(list(test_cells)))) == 0, 'train/test set share cell lines'
         assert len(set(list(train_cells)).intersection(set(list(val_cells)))) == 0, 'train/val set share cell lines'
@@ -145,35 +154,3 @@ if __name__ == '__main__':
     np.save(f'{args.out}/lincs_val_obs', val_obs)
     np.save(f'{args.out}/lincs_test_obs', test_obs)
     np.save(f'{args.out}/lincs_train_obs', train_obs)
-
-'''
-    ############################################################################
-    # create prism splits 
-    ############################################################################
-    print()
-    print('creating PRISM train/test/val splits...')
-    prism = utils.load_prism(args.data, cellspace=data.cellspace, drugspace=data.drugspace)
-    prism_ids = np.load(args.proc + '/prism_ids.npy', allow_pickle=True)
-    prism = prism.merge(pd.DataFrame({'sig_id':prism_ids}), on='sig_id', how='right')
-    
-    if args.hold_out == 'cell': 
-        train_obs2 = prism[lambda x: x.cell_iname.isin(train_cells)].sig_id.values
-        test_obs2 = prism[lambda x: x.cell_iname.isin(test_cells)].sig_id.values
-        val_obs2 = prism[lambda x: x.cell_iname.isin(val_cells)].sig_id.values
-    elif args.hold_out == 'cell-drug': 
-        test_obs2 = keys2sids(test_keys, prism)
-        val_obs2 = keys2sids(val_keys, prism)
-        train_obs2 = prism[lambda x: ~x.sig_id.isin(test_obs2) | ~x.sig_id.isin(val_obs2)].sig_id.values
-    else: 
-        raise ValueError('unrecognized `hold_out` argument.')
-
-    np.save(f'{args.out}/prism_val_obs', val_obs2)
-    np.save(f'{args.out}/prism_test_obs', test_obs2)
-    np.save(f'{args.out}/prism_train_obs', train_obs2)
-
-    print('prism train/test/val splits:')
-    print(f'\ttrain: {len(train_obs2)}')
-    print(f'\tval: {len(val_obs2)}')
-    print(f'\ttest: {len(test_obs2)}')
-
-'''

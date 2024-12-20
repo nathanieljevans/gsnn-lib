@@ -15,8 +15,8 @@ UserWarning: TypedStorage is deprecated. It will be removed in the future and Un
 '''
 
 import sys 
-from src.data.pygLincsDataset import pygLincsDataset
-from src.models import utils 
+from gsnn_lib.data.pygLincsDataset import pygLincsDataset
+from gsnn.models import utils 
 
 def get_args(): 
     parser = argparse.ArgumentParser()

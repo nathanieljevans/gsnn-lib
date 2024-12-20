@@ -20,7 +20,6 @@ def augment_edge_index(edge_index, N, seed=0):
             col.append(j.item())
             n+=1
     print()
-
     
     new_edges = torch.stack((torch.tensor(row, dtype=torch.long),
                              torch.tensor(col, dtype=torch.long)), dim=0)

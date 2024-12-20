@@ -7,7 +7,7 @@ import numpy as np
 class scSampler: 
     '''Sample Px, Py from unperturbed and pertrubed single cell omics'''
 
-    def __init__(self, root, drug_filter=None, cell_filter=None, test_prop=0., val_prop=0.):
+    def __init__(self, root, drug_filter=None, cell_filter=None):
         # TODO: how to handle partition splits... 
 
         self.root = root 
@@ -35,24 +35,52 @@ class scSampler:
         self.controls = self.meta[lambda x: x.pert_type == 'unperturbed'].groupby(['cell_line'])[['id']].agg(list)
 
         # in-distribution test/val assignments 
-        self.test_prop = test_prop; self.val_prop = val_prop
-        if test_prop > 0:
-            self.meta = self.meta.assign(test = np.random.choice([True, False], size=self.meta.shape[0], p=[test_prop, 1-test_prop]))
-        else: 
-            self.meta = self.meta.assign(test = False)
-        
-        if val_prop > 0:    
-            val_labels = np.zeros(self.meta.shape[0], dtype=bool)
-            val_labels[self.meta[lambda x: ~x.test].sample(frac=val_prop).index] = True
-            self.meta = self.meta.assign(val=val_labels)
-        else:
-            self.meta = self.meta.assign(val=False)
+        train_idx = torch.load(root + '/train_idxs.pt')
+        test_idx = torch.load(root + '/test_idxs.pt')
+        val_idx = torch.load(root + '/val_idxs.pt')
+
+        self.meta = self.meta.assign(train = False, test = False, val = False)
+        self.meta.loc[train_idx, 'train'] = True
+        self.meta.loc[test_idx, 'test'] = True
+        self.meta.loc[val_idx, 'val'] = True
+
+        # check that train,test,val are disjoint
+        assert self.meta[lambda x: x.train & x.test].shape[0] == 0, 'train and test overlap'
+        assert self.meta[lambda x: x.train & x.val].shape[0] == 0, 'train and val overlap'
+        assert self.meta[lambda x: x.test & x.val].shape[0] == 0, 'test and val overlap'
         
         self.drug_idxs = torch.tensor([i for i,n in enumerate(data['node_names_dict']['input']) if 'DRUG_' in n], dtype=torch.long)
         self.n_drugs = len(self.drug_idxs)
         self.n_cell_lines = len(self.conditions.cell_line.unique())
         self.cell2onehot = {cell:x for cell,x in zip(self.conditions.cell_line.unique(), torch.eye(self.n_cell_lines))}
+    
+    def sample_from_all_profiles(self, partition='train', verbose=True, N=None):
+        '''return unperturbed and perturbed profiles'''
         
+        if partition == 'train':
+            meta = self.meta[lambda x: ~x.test & ~x.val]
+        elif partition == 'test':
+            meta = self.meta[lambda x: x.test]
+        elif partition == 'val':
+            meta = self.meta[lambda x: x.val]
+        else:
+            raise ValueError('partition must be "train" or "test" or "val"')
+        
+        if N is not None: 
+            if meta.shape[0] < N:
+                N = meta.shape[0]
+            meta = meta.sample(n=N, replace=False, axis=0)
+        
+        x = [] ; ii=0
+        for i,row in meta.iterrows():
+            if verbose: print(f'loading data... {ii}/{meta.shape[0]}', end='\r'); ii+=1
+            xx = torch.load(row.fpath)
+            if row.pert_type == 'unperturbed':
+                xx = xx[self.data.X2Y0_idxs]
+            x.append(xx)
+
+        return torch.stack(x, dim=0)
+
     def __len__(self): 
         return self.conditions.shape[0]
     
@@ -68,15 +96,67 @@ class scSampler:
             x_drug.append(xx_drug)
             y0.append(yy0)
         return torch.cat(x, dim=0), torch.cat(y, dim=0), torch.cat(x_cell, dim=0), torch.cat(x_drug, dim=0), torch.cat(y0, dim=0)
+    
+    def sample_targets(self, idx, batch_size=64, partition='train'): 
+        condition = self.conditions.iloc[idx]
+        perts = self.meta.iloc[condition.id]
+
+        if partition == 'train': 
+            perts = perts[lambda x: (~x.test) & (~x.val)]
+        elif partition == 'test':
+            perts = perts[lambda x: x.test]
+        elif partition == 'val':
+            perts = perts[lambda x: x.val]
+        else:
+            raise ValueError('partition must be "train" or "test" or "val"')
+        
+        if perts.shape[0] > batch_size: 
+            perts = perts.sample(n=batch_size, replace=False, axis=0)
+
+        # load outputs 
+        y = [] 
+        for fpath in perts.fpath: 
+            y.append(torch.load(fpath))
+        y = torch.stack(y, dim=0)
+
+        return y 
+    
+    def sample_controls(self, idx, batch_size=64, partition='train'):
+
+        condition = self.conditions.iloc[idx]
+        cell_line = condition.cell_line 
+        ctrls = self.meta.iloc[self.controls.loc[cell_line].id]
+
+        if partition == 'train': 
+            ctrls = ctrls[lambda x: (~x.test) & (~x.val)]
+        elif partition == 'test':
+            ctrls = ctrls[lambda x: x.test]
+        elif partition == 'val':
+            ctrls = ctrls[lambda x: x.val]
+        else:
+            raise ValueError('partition must be "train" or "test" or "val"')
+        
+        if ctrls.shape[0] > batch_size:
+            ctrls = ctrls.sample(n=batch_size, replace=False, axis=0)
+
+        x = [] 
+        for fpath in ctrls.fpath: 
+            xx = torch.load(fpath)
+            x.append(xx)
+        x = torch.stack(x, dim=0)
+
+        y0 = x[:, self.data.X2Y0_idxs] 
+
+        return y0
 
 
-    def sample_(self, idx, batch_size=64, partition='train', ret_all_y=False): 
+
+    def sample_(self, idx, batch_size=64, partition='train', ret_all_y=False, ret_all_y0=False): 
         # TODO: Test that this is selecting appropriately 
         condition = self.conditions.iloc[idx]
         cell_line = condition.cell_line 
         pert_id = condition.drug
         dose = condition.dose / 1e3 # dose is in nanomolars (conversion expects uM)
-        self.controls.loc[cell_line]
         perts = self.meta.iloc[condition.id]
         ctrls = self.meta.iloc[self.controls.loc[cell_line].id]
 
@@ -98,10 +178,11 @@ class scSampler:
             
             if not ret_all_y: perts = perts.sample(n=batch_size, replace=False, axis=0)
 
-            if ctrls.shape[0] < batch_size:
-                ctrls = ctrls.sample(n=batch_size, replace=True, axis=0) # this is unlikely to occur
-            else:
-                ctrls = ctrls.sample(n=batch_size, replace=False, axis=0)
+            if not ret_all_y0: 
+                if ctrls.shape[0] < batch_size:
+                    ctrls = ctrls.sample(n=batch_size, replace=True, axis=0) # this is unlikely to occur
+                else:
+                    ctrls = ctrls.sample(n=batch_size, replace=False, axis=0)
 
         # load inputs 
         x = [] 

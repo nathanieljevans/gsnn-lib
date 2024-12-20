@@ -115,6 +115,7 @@ prism_second_cell_info=https://ndownloader.figshare.com/files/20237769
 nci_almanac="https://wiki.nci.nih.gov/download/attachments/338237347/ComboDrugGrowth_Nov2017.zip?version=1&modificationDate=1510057275000&api=v2&download=true"
 nsc2sid="https://wiki.nci.nih.gov/download/attachments/155844992/NSC_PubChemSID.csv?version=1&modificationDate=1378730186000&api=v2&download=true"
 
+nci60='https://wiki.nci.nih.gov/download/attachments/147193864/DOSERESP.zip?version=13&modificationDate=1727922354561&api=v2'
 
 #######################################################################################################################
 # Download and unpack 
@@ -165,5 +166,9 @@ date > $ROOT/date_of_download.txt
 [ ! -f "$ROOT/ccle_mutation.txt" ] && wget $mut -O $ROOT/ccle_mutation.txt
 [ ! -f "$ROOT/ccle_cnv.txt" ] && wget $cnv -O $ROOT/ccle_cnv.txt
 [ ! -f "$ROOT/ccle_methyl.txt" ] && wget $CpG_rrbs -O $ROOT/ccle_methyl.txt --referer='https://depmap.org/portal/download/all/' --user-agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
+
+[ ! -f "$ROOT/NCI60_dose_response_data.zip" ] && wget $nci60 -O $ROOT/NCI60_dose_response_data.zip
+[ -f "$ROOT/NCI60_dose_response_data.zip" ] && unzip -o $ROOT/NCI60_dose_response_data.zip -d $ROOT
+[ -f "$ROOT/NCI60_dose_response_data.zip" ] && rm $ROOT/NCI60_dose_response_data.zip
 
 echo 'downloads complete'

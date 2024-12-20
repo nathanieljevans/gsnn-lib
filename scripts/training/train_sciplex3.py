@@ -16,19 +16,18 @@ from gsnn_lib.proc.lincs.utils import get_x_drug_conc           # required to un
 from gsnn_lib.data.scSampler import scSampler
 from gsnn.ot.NOT import NOT
 from gsnn.ot.SHD import SHD
+from gsnn.ot.OTICNN import OTICNN
 from gsnn.ot.utils import eval
 
 import warnings
 warnings.filterwarnings("ignore")
 
-import gc
-
 def get_args(): 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default='../sc_data/',
+    parser.add_argument("--data", type=str, default='../output/sciplex3/',
                         help="path to data directory")
 
-    parser.add_argument("--out", type=str, default='../sc_output_not/',
+    parser.add_argument("--out", type=str, default='../output/models/',
                         help="path to output directory")
     
     parser.add_argument("--iters", type=int, default=1000,
@@ -55,17 +54,14 @@ def get_args():
     parser.add_argument("--wd", type=float, default=0.,
                         help="weight decay")
     
-    parser.add_argument("--val_prop", type=float, default=0.1,
-                        help="proportion of validation data")
-    
-    parser.add_argument("--test_prop", type=float, default=0.1,
-                        help="proportion of test data")
-    
     parser.add_argument("--method", type=str, default='shd',
-                        help="transport optimization strategy to use [not, shd]")
+                        help="transport optimization strategy to use [not, shd, icnn]")
     
     parser.add_argument("--T_lr", type=float, default=1e-3,
                         help="learning rate for T")
+    
+    parser.add_argument("--T_arch", type=str, default='gsnn',
+                        help="architecture for T [gsnn, nn]")
     
     parser.add_argument("--drugs", nargs='+', default=None, 
                         help="drug filters") 
@@ -96,12 +92,15 @@ def get_args():
     
     parser.add_argument("--reach", type=float, default=None,
                         help="the reach parameter for the sinkhorn distance; beneficial in noisy settings with outliers [relevant only if `method='shd'`]")
-
-    parser.add_argument("--T_arch", type=str, default='gsnn',
-                        help="architecture for T [gsnn, nn]")
     
     parser.add_argument("--checkpoint", action='store_true',
                         help="checkpoint GSNN layer gradients; will reduce memory but increase computation time")
+    
+    parser.add_argument("--icnn_reg", type=float, default=0.1,
+                        help="regularization for ICNN positive weights [relevant only if `method='icnn'`]")
+    
+    parser.add_argument("--icnn_g_iters", type=int, default=10,
+                        help="number of g iters per f iter [relevant only if `method='icnn'`]")
     
     args = parser.parse_args()
 
@@ -122,14 +121,15 @@ if __name__ == '__main__':
 
     sampler = scSampler(f'{args.data}/',
                         drug_filter=args.drugs,
-                        cell_filter=args.cell_lines,
-                        test_prop=args.test_prop,
-                        val_prop=args.val_prop)
+                        cell_filter=args.cell_lines)
     
     if args.method == 'not': 
         trainer = NOT(args, data, sampler)
     elif args.method == 'shd': 
         trainer = SHD(args, data, sampler)
+    elif args.method == 'icnn':
+        assert args.T_arch == 'nn', 'ICNN only supports nn architecture for T'
+        trainer = OTICNN(args, data, sampler)
     else:
         raise ValueError('method not recognized [shd, not]')
 

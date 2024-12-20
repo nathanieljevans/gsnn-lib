@@ -11,7 +11,7 @@ channels:
     - defaults 
 
 dependencies:
-    - python=3.12
+    - python
     - matplotlib
     - pubchempy
     - pyg
@@ -22,6 +22,9 @@ dependencies:
     - h5py
     - scipy
     - tensorboard
+    - numpy==1.26 # omnipath not compatible with 2+
+    - omnipath
+    - torch-scatter
     - shapely
     - statsmodels
     - rdkit
@@ -32,11 +35,9 @@ dependencies:
         - ipykernel
         - umap-learn
         - biopython
+        - torch-sparse
         - obonet
-        - omnipath 
         - adjustText
-        - torch-sparse 
-        - torch-scatter
         - scperturb
         - pykeops
         - geomloss

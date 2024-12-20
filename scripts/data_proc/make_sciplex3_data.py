@@ -25,19 +25,21 @@ from gsnn_lib.proc import omnipath
 from gsnn_lib.proc import dti
 from gsnn_lib.proc.sc.load import get_SrivatsanTrapnell2020
 
-### GLOBAL CONFIGS ### 
-__DOSE_EPS__ = 1e-6
 
 def get_args(): 
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--data",               type=str,               default='../../data/',                      help="path to data directory")
-    parser.add_argument("--out",                type=str,               default='../sc_data/',               help="path to data directory")
+    parser.add_argument("--out",                type=str,               default='../output/sciplex3/',               help="path to data directory")
     parser.add_argument("--extdata",            type=str,               default='../extdata/',                      help="path to data directory")
     parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
     parser.add_argument("--filter_depth",       type=int,               default=10,                                 help="the depth to search for upstream drugs and downstream lincs in the node filter process")
-    parser.add_argument("--n_genes",            type=int,               default=1000,                                 help="selection of the top N high-variance RNA genes")
+    parser.add_argument("--n_genes",            type=int,               default=2000,                               help="selection of the top N high-variance RNA genes")
     parser.add_argument("--undirected",         action='store_true',    default=False,                              help="make all function edges undirected")
+    parser.add_argument("--seed",               type=int,               default=0,                                  help="randomization seed")
+    parser.add_argument('--val_prop',           type=float,             default=0.1,                                help='proportion of cells to assign to validation partition')
+    parser.add_argument('--test_prop',          type=float,             default=0.1,                                help='proportion of cells to assign to test partition')
+    parser.add_argument('--dose_eps_',          type=float,             default=1e-6,                               help='dose scaling epsilon [recommended: 1e-6]')
     args = parser.parse_args() 
 
     return args 
@@ -45,6 +47,8 @@ def get_args():
 if __name__ == '__main__': 
 
     args = get_args()
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
     print()
 
     if not os.path.exists(args.out): 
@@ -54,7 +58,6 @@ if __name__ == '__main__':
     with open(f'{args.out}/args.log', 'w') as f: 
         f.write(str(args))
     
-
     # retrieve prior knowledge from omnipath
     func_names, func_df = omnipath.get_interactions(undirected=args.undirected)
 
@@ -65,12 +68,10 @@ if __name__ == '__main__':
     func_df = func_df.assign(target_is_rna = ['RNA' in x for x in func_df.target])
     rna_uniprots = np.unique(func_df.source_uni[func_df.source_is_rna].tolist() + func_df.target_uni[func_df.target_is_rna].tolist())
 
-    
     ## load drug target interactions 
     targets = dti.get_interactions(extdata_dir=args.extdata, 
                                    sources=args.dti_sources, 
                                    func_names=func_names)
-    
 
     ## load sc data ; Sciplex3
     print('loading and pre-processing single cell data')
@@ -125,10 +126,9 @@ if __name__ == '__main__':
 
     assert drug_adata.obs.pert_id.unique().shape[0] == len(args.drugs), f'drug adata unique drugs {ctrl_adata.obs.pert_id.unique().shape[0]} are different than length of args.lincs {len(args.drugs)}'
 
-
-    ######################################3
+    ######################################
     ## END filter 
-    ######################################3
+    ######################################
     
     input_names = ['DRUG__' + d for d in args.drugs] + ['UNPERT_RNA__' + r for r in args.lincs]
 
@@ -250,7 +250,7 @@ if __name__ == '__main__':
     # x_drug_dict[drug](conc_um) -> x_drug_conc 
     for drug in args.drugs: 
         idx = input_names.index('DRUG__' + drug)
-        f = functools.partial(get_x_drug_conc, idx=idx, N=len(input_names), eps=__DOSE_EPS__)
+        f = functools.partial(get_x_drug_conc, idx=idx, N=len(input_names), eps=args.dose_eps_)
         x_drug_dict[drug] = f
 
     x_dict = {'cell_dict':None,
@@ -258,7 +258,6 @@ if __name__ == '__main__':
     
     data['x_dict'] = x_dict
     
-
     ## outputs 
     # we will create the obs_space then save each one to file. 
     out2idx = {n:i for i,n in enumerate(data.node_names_dict['output'])}
@@ -272,9 +271,23 @@ if __name__ == '__main__':
         torch.save(x, f'{args.out}/PROC/perturbed_{i}_{row.pert_id}_{row.dose_value}_{row.cell_line}.pt')
     print()
 
-    #drug_adata.write_h5ad(args.out + '/drug_adata.h5')
     torch.save(data, args.out + '/data.pt')
 
+    # create data partitions (train, valid, test)
+    print('creating data partitions...')
+    n = len(drug_adata.obs)
+    idxs = np.arange(n)
+    np.random.shuffle(idxs)
+    n_val = int(args.val_prop * n)
+    n_test = int(args.test_prop * n)
+    n_train = n - n_val - n_test
+    idxs_train = idxs[:n_train]
+    idxs_val = idxs[n_train:n_train+n_val]
+    idxs_test = idxs[n_train+n_val:]
+
+    torch.save(torch.tensor(idxs_train, dtype=torch.long), args.out + '/train_idxs.pt')
+    torch.save(torch.tensor(idxs_val, dtype=torch.long), args.out + '/val_idxs.pt')
+    torch.save(torch.tensor(idxs_test, dtype=torch.long), args.out + '/test_idxs.pt')
 
     with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
 

@@ -10,28 +10,28 @@ import copy
 
 
 class LincsDataset(Dataset):
-    def __init__(self, root, sig_ids, data, siginfo):
+    def __init__(self, root, cond_ids, data, cond_meta):
         '''
 
         '''
         super().__init__()
 
-        self.sig_ids  = np.array(sig_ids)
+        self.cond_ids  = np.array(cond_ids)
         self.root     = root 
         self.data     = data
         
-        siginfo  = siginfo[lambda x: x.sig_id.isin(self.sig_ids)]
-        siginfo  = siginfo.set_index('sig_id')[['pert_id', 'pert_dose', 'cell_iname']]
-        self.siginfo = siginfo
+        cond_meta  = cond_meta[lambda x: x.condition_id.isin(self.cond_ids)]
+        cond_meta  = cond_meta.set_index('condition_id')[['pert_id', 'pert_dose', 'cell_iname']]
+        self.cond_meta = cond_meta
 
     def __len__(self):
-        return len(self.sig_ids)
+        return len(self.cond_ids)
 
     def __getitem__(self, idx):
 
-        sig_id      = self.sig_ids[idx]
+        cond_id      = self.cond_ids[idx]
 
-        info        = self.siginfo.loc[sig_id]
+        info        = self.cond_meta.loc[cond_id]
         pert_id     = info.pert_id
         conc_um     = info.pert_dose
         cell_iname  = info.cell_iname
@@ -39,6 +39,6 @@ class LincsDataset(Dataset):
         x_cell      = self.data.x_dict['cell_dict'][cell_iname]
         x           = x_drug + x_cell 
 
-        y           = torch.load(f'{self.root}/obs/{sig_id}.pt')
+        y           = torch.load(f'{self.root}/obs/{cond_id}.pt', weights_only=True)
 
-        return x.to_dense().detach(), y.to_dense().detach(), sig_id
+        return x.to_dense().detach(), y.to_dense().detach(), cond_id

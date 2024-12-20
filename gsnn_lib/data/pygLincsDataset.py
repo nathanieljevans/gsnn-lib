@@ -10,36 +10,58 @@ import copy
 
 
 class pygLincsDataset(Dataset):
-    def __init__(self, root, sig_ids, data):
+    def __init__(self, root, cond_ids, data, condinfo):
         '''
+
         '''
         super().__init__()
 
-        self.sig_ids            = np.array(sig_ids)
-        self.root               = root 
-        self.data               = data
-
+        self.cond_ids  = np.array(cond_ids)
+        self.root     = root 
+        self.data     = data
+        
+        condinfo  = condinfo[lambda x: x.condition_id.isin(self.cond_ids)]
+        condinfo  = condinfo.set_index('condition_id')[['pert_id', 'pert_dose', 'cell_iname']]
+        self.condinfo = condinfo
 
     def __len__(self):
-        return len(self.sig_ids)
+        return len(self.cond_ids)
 
     def __getitem__(self, idx):
 
         # create data object 
+        cond_id      = self.cond_ids[idx]
 
-        data = pyg.data.Data()
+        info        = self.condinfo.loc[cond_id]
+        pert_id     = info.pert_id
+        conc_um     = info.pert_dose
+        cell_iname  = info.cell_iname
+        x_drug      = self.data.x_dict['drug_dict'][pert_id](conc_um)
+        x_cell      = self.data.x_dict['cell_dict'][cell_iname]
+        x           = x_drug + x_cell 
+        y           = torch.load(f'{self.root}/obs/{cond_id}.pt', weights_only=True)
 
-        sig_id      = self.sig_ids[idx]
+        data = pyg.data.HeteroData()
 
-        obs         = torch.load(f'{self.root}/obs/{sig_id}.pt')
+        for key,edge_index in self.data.edge_index_dict.items():
+            data[key].edge_index = edge_index
+        
+        # add self edges 
+        data['input','to','input'].edge_index = torch.stack([torch.arange(len(self.data.node_names_dict['input'])), 
+                                                             torch.arange(len(self.data.node_names_dict['input']))], dim=0)
+        data['function','to','function'].edge_index = torch.stack([torch.arange(len(self.data.node_names_dict['function'])),
+                                                                     torch.arange(len(self.data.node_names_dict['function']))], dim=0)
+        data['output','to','output'].edge_index = torch.stack([torch.arange(len(self.data.node_names_dict['output'])), 
+                                                             torch.arange(len(self.data.node_names_dict['output']))], dim=0)
 
-        x = obs['x']
-        y = obs['y']
+        data['input'].x = x.to_dense().view(-1,1)
+        data['function'].x = torch.zeros(len(self.data.node_names_dict['function']), 1)
+        data['output'].x = torch.zeros(len(self.data.node_names_dict['output']), 1)
 
-        data.edge_index = self.data.edge_index
-        data.x = x 
-        data.y = y 
-        data.output_node_mask = self.data.output_node_mask
-        data.sig_id = sig_id
+        data['input'].y = torch.zeros(len(self.data.node_names_dict['input']), 1)
+        data['function'].y = torch.zeros(len(self.data.node_names_dict['function']), 1)
+        data['output'].y = y.to_dense().view(-1,1)
+
+        data.sig_id = cond_id
 
         return data

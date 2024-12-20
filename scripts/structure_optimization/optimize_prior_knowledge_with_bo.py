@@ -19,6 +19,8 @@ from gsnn_lib.proc.lincs.utils import get_x_drug_conc           # required to un
 from torch_geometric.utils import to_undirected 
 from gsnn.optim.BayesOpt import BayesOpt
 
+import os
+
 
 from gsnn_lib.utils.augment_edge_index import augment_edge_index
 
@@ -56,15 +58,15 @@ def get_args():
     # GSNN training parameters
     parser.add_argument("--lr", type=float, default=1e-2,
                         help="GSNN learning rate")
-    parser.add_argument("--max_epochs", type=int, default=50,
+    parser.add_argument("--max_epochs", type=int, default=25,
                         help="GSNN number of layers")
-    parser.add_argument("--patience", type=int, default=10,
+    parser.add_argument("--patience", type=int, default=5,
                         help="early stopping patience")
     parser.add_argument("--min_delta", type=float, default=1e-2,
                         help="early stopping minimum improvement")
-    parser.add_argument("--batch", type=int, default=50, 
+    parser.add_argument("--batch", type=int, default=124, 
                         help="GSNN training batch size")
-    parser.add_argument("--workers", type=int, default=5,
+    parser.add_argument("--workers", type=int, default=10,
                         help="GSNN training; number of dataloader workers")
     
     # surrogate GSNN parameters
@@ -116,7 +118,7 @@ def get_args():
                         help="HyperNet number of samples to draw during training")
     
     # bayesian optimization parameters
-    parser.add_argument("--bayesopt_batch_size", type=int, default=5,
+    parser.add_argument("--bayesopt_batch_size", type=int, default=2,
                         help="Number of candidate actions to eval each iteration")
     parser.add_argument("--record_dir", type=str, default='../ExpRec_tmp/',
                         help="directory path to save experiences to")
@@ -136,9 +138,10 @@ def get_args():
                         help="LCB/UCB quantile value to use")
     parser.add_argument("--neighborhood", type=int, default=1000,
                         help="soft constraint on the neighborhood around the best reward that bayesopt should explore")
-    
-    
+
     # other params 
+    parser.add_argument("--optimize", type=str, default='function_edges',
+                        help="whether to optimize `input_edges` or `function_edges`")
     parser.add_argument("--add_false_edges", type=int, default=0,
                         help="Number of false edges to add to the graph")
     parser.add_argument("--save_every", type=int, default=10,
@@ -152,15 +155,23 @@ def get_args():
 if __name__ == '__main__': 
 
     args = get_args()
+    print(args)
+    print()
+
+    os.makedirs(args.out, exist_ok=True)
  
     siginfo = pd.read_csv(f'{args.siginfo}/siginfo_beta.txt', sep='\t', low_memory=False)
 
     data = torch.load(f'{args.data}/data.pt')
 
-    if args.add_false_edges > 0: 
-        data.edge_index_dict['function', 'to', 'function'], true_edge_mask = augment_edge_index(data.edge_index_dict['function', 'to', 'function'], N=args.add_false_edges)
-    else: 
-        true_edge_mask = None
+    print('# of false dti edges:', (~data.true_input_edge_mask).sum().item())
+
+    if args.optimize == 'function_edges':
+        key = ('function', 'to', 'function')
+    elif args.optimize == 'input_edges':
+        key = ('input', 'to', 'function')
+    else:
+        raise ValueError('optimize must be either `function` or `input`')
 
     train_ids = np.load(f'{args.fold}/lincs_train_obs.npy', allow_pickle=True)
     train_dataset = LincsDataset(root=f'{args.data}', sig_ids=train_ids, data=data, siginfo=siginfo)
@@ -168,7 +179,7 @@ if __name__ == '__main__':
     val_ids = np.load(f'{args.fold}/lincs_val_obs.npy', allow_pickle=True)
     val_dataset = LincsDataset(root=f'{args.data}', sig_ids=val_ids, data=data, siginfo=siginfo)
 
-    bayesopt = BayesOpt(args, data, train_dataset, val_dataset)
+    bayesopt = BayesOpt(args, data, train_dataset, val_dataset, key=key)
 
     bayesopt.warmup(args.warmup, p=args.warmup_p)
 
@@ -190,11 +201,29 @@ if __name__ == '__main__':
                     'best_action':best_action, 
                     'best_reward':best_reward,
                     'best_rewards_per_iter': best_rewards,
+                    'key':key,
                     'args':args,
-                    'true_edge_mask':true_edge_mask,
                     'data':data}, 
                     args.out + '/bayesopt_results_dict.pt')
+        
+        if (~data.true_input_edge_mask).sum().item() > 0: 
+            assert key == ('input', 'to', 'function'), 'using false dti edges should only be used with `input` optimization'
 
+            src = data.edge_index_dict[key][0].detach().cpu().numpy()
+            src_names = np.array(data.node_names_dict['input'])[src]
+            dti_edge_mask = torch.tensor([True if 'DRUG_' in n else False for n in src_names], dtype=torch.bool)
+
+            y = data.true_input_edge_mask[dti_edge_mask]
+            yhat = best_action[dti_edge_mask]
+
+            true_negs = ((y == 0) & (yhat == 0)).sum().item()
+            tot_negs = (y == 0).sum().item()
+            true_pos = ((y == 1) & (yhat==1)).sum().item()
+            tot_pos = (y == 1).sum().item()
+            
+            print('best action dti edge accuracy (true vs. predicted):', (y == yhat).float().mean().item())
+            print(f'true pos: {true_pos}/{tot_pos} [{true_pos/tot_pos:.2f}]| true negs: {true_negs}/{tot_negs} [{true_negs/tot_negs:.2f}]')
+        
 
 
 

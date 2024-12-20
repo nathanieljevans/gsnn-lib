@@ -23,10 +23,13 @@ The figures and analysis presented in the preprint can be run using the code ava
 ## Getting Started
 
 Create the `conda/mamba` python environment and install the GSNN package: 
+(TODO: update environment with github url when dev is done)
 ```bash 
 $ mamba env create -f environment.yml 
-$ conda activate gsnn 
-(gsnn) $ pip install -e .
+$ conda activate gsnn-lib 
+(gsnn-lib) $ pip install -e .
+(gsnn-lib) $ pip install -e /path/to/GSNN/
+(gsnn-lib) $ pip install -e /path/to/hypernet/ 
 ```
 
 Download the necessary raw data: 

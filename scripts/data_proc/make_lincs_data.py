@@ -1,20 +1,11 @@
 '''
 examples: 
 
-# breast lines, one drug, expr only, TP53
-python make_data.py --data ../../data/ --out ../data/all/ --dti_sources clue targetome --drugs BRD-K60230970 --omics expr --time 24 --min_obs_per_drug 25 --lincs P04637 --lines HME1 BT20 BT474 HS578T MCF10A MCF7 MDAMB231 MDAMB468 SKBR3 T47D ZR751
-python create_data_splits.py --data ../../data/ --proc ../data/all/ --out ../data/all/ --test_prop 0.1 --val_prop 0.25 --hold_out cell
-
-
-# TP53, all lines, expr only, one drug 
-python make_data.py --data ../../data/ --out ../data/all/ --dti_sources clue targetome --omics expr --time 24 --min_obs_per_drug 25 --lincs P04637
-python create_data_splits.py --data ../../data/ --proc ../data/all/ --out ../data/all/ --test_prop 0.1 --val_prop 0.25 --hold_out cell
-
-
-# breast cancer (all with cell lineage = breast), expr only,
-python make_data.py --data ../../data/ --out ../data/all/ --dti_sources clue targetome --omics expr --time 24 --min_obs_per_drug 25 --feature_space landmark --lines HME1 BT20 BT474 HS578T MCF10A MCF7 MDAMB231 MDAMB468 SKBR3 T47D ZR751
-
+# all lines, all drugs, all lincs [no methyl]
+python make_lincs_data.py --data ../../../data/ --out ../../proc/lincs/ --dti_sources targetome
+python create_data_splits.py --data ../../../data/ --proc ../../proc/lincs/
 '''
+
 import argparse 
 import os 
 import pandas as pd
@@ -32,31 +23,32 @@ from gsnn_lib.proc.lincs.load_methyl import load_methyl
 from gsnn_lib.proc.lincs.load_expr import load_expr
 from gsnn_lib.proc.lincs.load_cnv import load_cnv
 from gsnn_lib.proc.lincs.load_mut import load_mut
-from gsnn_lib.proc.lincs.utils import get_x_drug_conc, load_prism, get_geneid2uniprot
+from gsnn_lib.proc.lincs.utils import get_x_drug_conc, get_geneid2uniprot
 from gsnn_lib.proc.omnipath.utils import filter_func_nodes
 from gsnn_lib.proc import omnipath
 from gsnn_lib.proc import dti
-
-### GLOBAL CONFIGS ### 
-__DOSE_EPS__ = 1e-6
 
 def get_args(): 
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--data",               type=str,               default='../../data/',                      help="path to data directory")
-    parser.add_argument("--out",                type=str,               default='../processed_data/',               help="path to data directory")
-    parser.add_argument("--extdata",            type=str,               default='../extdata/',                      help="path to data directory")
+    parser.add_argument("--out",                type=str,               default='../../proc/lincs/',                help="path to data directory")
+    parser.add_argument("--extdata",            type=str,               default='../../extdata/',                   help="path to data directory")
     parser.add_argument('--feature_space',      nargs='+',              default=['landmark'],                       help='lincs feature space [landmark, best-inferred, inferred]')
     parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
     parser.add_argument('--drugs',              nargs='+',              default=['none'],                           help='list of drugs to include in the graph')
     parser.add_argument('--lines',              nargs='+',              default=['none'],                           help='list of cell lines to include in the graph')
     parser.add_argument('--lincs',              nargs='+',              default=['none'],                           help='list of lincs genes to include in the graph')
     parser.add_argument('--omics',              nargs='+',              default=['mut', 'methyl', 'expr', 'cnv'],   help='list of lincs genes to include in the graph')
-    parser.add_argument('--omics_q_filter',     type=float,             default=0.1,                                help='the bottom q quantile to remove features')
+    parser.add_argument('--omics_q_filter',     type=float,             default=0.25,                               help='features with variance in the `q` quantile will be removed (remove low variance features)')
     parser.add_argument("--time",               type=float,             default=24.,                                help="the time point to predict expression changes for")
     parser.add_argument("--filter_depth",       type=int,               default=10,                                 help="the depth to search for upstream drugs and downstream lincs in the node filter process")
-    parser.add_argument("--min_obs_per_drug",   type=int,               default=250,                                help="if `--drugs` is None, then this will be the minimum number of obs to be included as drug candidate")
+    parser.add_argument("--min_obs_per_drug",   type=int,               default=100,                                help="if `--drugs` is None, then this will be the minimum number of obs to be included as drug candidate")
     parser.add_argument("--undirected",         action='store_true',    default=False,                              help="make all function edges undirected")
+    parser.add_argument("--N_false_dti_edges",  type=int,               default=0,                                  help="number of false drug-> function edges to add to the graph")
+    parser.add_argument('--dose_epsilon',       type=float,             default=1e-6,                               help='scaling parameter for dose transformation')
+    parser.add_argument('--norm',               type=str,               default='none',                           help='normalization method for omics [zscore, minmax, none]')
+
     args = parser.parse_args() 
 
     if args.drugs[0] == 'none': args.drugs = None
@@ -96,16 +88,16 @@ if __name__ == '__main__':
     ##################################
     _omics = {} 
     if ('methyl' in args.omics) or (args.omics is None): 
-        methyl  = load_methyl(path=args.data, extpath='../extdata/') ; print('\t\tmethyl loaded.')
+        methyl  = load_methyl(path=args.data, extpath=args.extdata) ; print('\t\tmethyl loaded.')
         _omics['methyl'] = {'df':methyl}
     if ('expr' in args.omics) or (args.omics is None): 
-        expr    = load_expr(path=args.data, extpath='../extdata/', zscore=False, clip_val=10) ; print('\t\texpr loaded.')
+        expr    = load_expr(path=args.data, extpath=args.extdata, zscore=False, clip_val=10) ; print('\t\texpr loaded.')
         _omics['expr'] = {'df':expr}
     if ('cnv' in args.omics) or (args.omics is None): 
-        cnv     = load_cnv(path=args.data, extpath='../extdata/') ; print('\t\tcnv loaded.')
+        cnv     = load_cnv(path=args.data, extpath=args.extdata) ; print('\t\tcnv loaded.')
         _omics['cnv'] = {'df':cnv}
     if ('mut' in args.omics) or (args.omics is None): 
-        mut     = load_mut(path=args.data, extpath='../extdata/') ; print('\t\tmut loaded.')
+        mut     = load_mut(path=args.data, extpath=args.extdata) ; print('\t\tmut loaded.')
         _omics['mut'] = {'df':mut}
 
     line_candidates = None
@@ -177,31 +169,52 @@ if __name__ == '__main__':
 
     print('# of omic inputs:', len(omic_space))
 
+    # ADD FALSE DRUG -> PROTEIN EDGES
+    targets = targets.assign(false_edge=False)
+    if args.N_false_dti_edges > 0: 
+        dcands = [d for d in args.drugs]
+        pcands = [p.split('__')[1] for p in func_names if 'PROTEIN' in p]
+        pert_id_ = np.random.choice(dcands, size=args.N_false_dti_edges)
+        target_ = np.random.choice(pcands, size=args.N_false_dti_edges)
+
+        targets = pd.concat([targets, pd.DataFrame({'pert_id':pert_id_, 
+                                                    'target':target_, 
+                                                    'false_edge':[True]*len(pert_id_)})], axis=0)
+
     # `input` nodes 
     #  These nodes are drugs and omic features and are fixed for the optimization procedure. 
     drug_space = args.drugs
     input_names = ['DRUG__' + d for d in drug_space] + omic_space
 
-    src=[]; dst=[]
+    src=[]; dst=[] ; true_input_edge_mask = []
     nde = 0 ; noe = 0 ; nce = 0
     for inp in input_names: 
         node, id = inp.split('__') 
         src_idx = input_names.index(inp)
 
         if node == 'DRUG': 
-            targs = targets[lambda x: x.pert_id == id].target.values 
-            for targ in targs: 
+            targs = targets[lambda x: x.pert_id == id]
+            for i,row in targs.iterrows():
+                targ = row.target 
                 dst_idx = func_names.index('PROTEIN__' + targ)
                 src.append(src_idx); dst.append(dst_idx)
                 nde+=1
                 # question: should we add DTIs to complexes if they contain the target? 
 
+                if row.false_edge: 
+                    true_input_edge_mask.append(False)
+                else: 
+                    true_input_edge_mask.append(True)
+
         elif node in ['MUT', 'METHYL', 'CNV', 'EXPR']: 
+
             if ('RNA__' + id) in func_names: 
+                true_input_edge_mask.append(True)
                 dst_idx = func_names.index('RNA__' + id)
                 src.append(src_idx); dst.append(dst_idx)
                 noe+=1
             if ('PROTEIN__' + id) in func_names: 
+                true_input_edge_mask.append(True)
                 # add edges to COMPLEXES that contain the respective id 
                 dst_idx = func_names.index('PROTEIN__' + id)
                 src.append(src_idx); dst.append(dst_idx)
@@ -211,11 +224,14 @@ if __name__ == '__main__':
             # inefficient but should work 
             for dst_idx, fname in enumerate(func_names): 
                 if ('COMPLEX' in fname) and (id in fname): 
+                    true_input_edge_mask.append(True)
                     src.append(src_idx); dst.append(dst_idx)
                     noe+=1
                     nce+=1 
         else:
             raise Exception()
+        
+    assert len(src) == len(dst) == len(true_input_edge_mask), 'input edge index mismatch'
         
     print('# drug edges', nde)
     print('# omic edges', noe)
@@ -249,6 +265,7 @@ if __name__ == '__main__':
                                      torch.tensor(dst, dtype=torch.long)), dim=0)
     
     data = pyg.data.HeteroData() 
+    data.true_input_edge_mask = torch.tensor(true_input_edge_mask, dtype=torch.bool)
 
     # create data 
     data['edge_index_dict'] = {
@@ -286,6 +303,7 @@ if __name__ == '__main__':
                         & (x.cell_iname.isin(args.lines))]
 
     data.cellspace = args.lines
+    data.drugspace = drug_space
 
     x_cell_dict = {} 
     for line in args.lines: 
@@ -302,7 +320,7 @@ if __name__ == '__main__':
     # x_drug_dict[drug](conc_um) -> x_drug_conc 
     for drug in drug_space: 
         idx = input_names.index('DRUG__' + drug)
-        f = functools.partial(get_x_drug_conc, idx=idx, N=len(input_names), eps=__DOSE_EPS__)
+        f = functools.partial(get_x_drug_conc, idx=idx, N=len(input_names), eps=args.dose_epsilon)
         #f = lambda x: get_x_drug_conc(x, idx=idx, N=len(input_names))
         x_drug_dict[drug] = f
 
@@ -361,13 +379,137 @@ if __name__ == '__main__':
     print('loading hdf to memory...')
     dataset = dataset_cp[col_idxs, :][:, row_idxs]
 
-    print('LINCS/OUTPUT means:', dataset.mean(axis=0))
-    print('LINCS/OUTPUT stds:', dataset.std(axis=0))
+    print('total number of lincs observations (sig_ids):', len(sig_ids))
+
+    # TODO: I want to average the data within condition ( cell, drug, dose )
+    # we will need to get the sig_ids for each condition, load the data into memory, average it, assign a new id (condition)
+    # we will need to also make a new siginfo file that maps condition to set of sigids as well as the condition parameters themselves 
+    # this files should be saved to `out`
+    #conditions = siginfo[['cell_iname', 'pert_id', 'pert_dose', 'sig_id']].groupby(['cell_iname', 'pert_id', 'pert_dose']).agg(lambda x: list(x)).reset_index()
+    # Average the data within each condition (cell, drug, dose)
+    # First, group siginfo by condition
+    conditions = (
+        siginfo[['cell_iname', 'pert_id', 'pert_dose', 'sig_id', 'pert_time']]
+        .groupby(['cell_iname', 'pert_id', 'pert_dose', 'pert_time'])
+        .agg(list)
+        .reset_index()
+    )
+
+    print('# of conditions (drug, cell-line, dose, time):', len(conditions))
+
+    # For each condition, average the replicates
+    new_sig_ids = []
+    new_dataset = []
+    condition_map = []  # store the original sig_ids for reference
+
+    df = {'cell_iname':[], 'pert_id':[], 'pert_dose':[], 'pert_time':[], 'sig_ids':[], 'condition_id':[]}
+    for i, row in conditions.iterrows():
+        print('averaging conditions... ', i, ' / ', len(conditions), end='\r')
+        original_sigids = row['sig_id']
+        # Get the dataset rows corresponding to these sig_ids
+        idxs = [np.where(sig_ids == s)[0][0] for s in original_sigids]
+        cond_data = dataset[idxs, :]
+
+        # Average across replicates
+        avg_data = cond_data.mean(axis=0)
+
+        # Create a new condition_id
+        condition_id = f"{row['cell_iname']}__{row['pert_id']}__{row['pert_dose']}__{row['pert_time']}"
+
+        new_sig_ids.append(condition_id)
+        new_dataset.append(avg_data)
+        condition_map.append(original_sigids)
+
+        df['cell_iname'].append(row['cell_iname'])
+        df['pert_id'].append(row['pert_id'])
+        df['pert_dose'].append(row['pert_dose'])
+        df['pert_time'].append(row['pert_time'])
+        df['condition_id'].append(condition_id)
+        df['sig_ids'].append(original_sigids)
+
+    print()
+
+    df = pd.DataFrame(df)
+
+    new_dataset = np.vstack(new_dataset)
+
+    # Update sig_ids and dataset to represent conditions rather than individual signatures
+    sig_ids = np.array(new_sig_ids)
+    dataset = new_dataset
+
+    # Save the condition mapping for future reference
+    conditions['condition_id'] = sig_ids
+    conditions['original_sig_ids'] = condition_map
+    conditions.to_csv(args.out + '/condition_mapping.csv', index=False)
+    df.to_csv(args.out + '/conditions_meta.csv', index=False)
+
+    # Perform normalization on the averaged dataset
+    if args.norm == 'scale':
+        std = dataset.std(axis=0)
+        transform = lambda x: x / (std + 1e-8)
+        transform_params = {'std':std, 'method':'scale'}
+    elif args.norm == 'zscore':
+        mu = dataset.mean(axis=0)
+        std = dataset.std(axis=0)
+        transform = lambda x: (x - mu) / (std + 1e-8)
+        transform_params = {'mu':mu, 'std':std, 'method':'zscore'}
+    elif args.norm == 'minmax':
+        min_ = dataset.min(axis=0)
+        max_ = dataset.max(axis=0)
+        transform = lambda x: (x - min_) / (max_ - min_ + 1e-8)
+        transform_params = {'min':min_, 'max':max_, 'method':'minmax'}
+    elif args.norm == 'none':
+        transform = lambda x: x
+        transform_params = {'method':'none'}
+
+    torch.save(transform_params, args.out + '/obs_transform_params.pt')
+
+    print('saving averaged obs to disk...')
+    os.makedirs(args.out + '/obs/', exist_ok=True)
+    for i, (cond_id, y) in enumerate(zip(sig_ids, dataset)):
+        print(f'saving to disk... {i}/{len(sig_ids)}', end='\r')
+        y = transform(y)
+        y = torch.tensor(y, dtype=torch.float32)
+        torch.save(y, args.out + '/obs/' + cond_id + '.pt')
+    print('# LINCS observations (averaged conditions):', i+1)
+
+    print('saving data object...')
+    torch.save(data, args.out + '/data.pt')
+
+    with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
+
+'''
+    if args.norm == 'scale':
+        # no shift, just normalize variance 
+        std = dataset.std(axis=0)
+        transform = lambda x: x / (std + 1e-8)
+        inv_transform = lambda x: x * std
+        transform_params = {'std':std, 'method':'scale'}
+    elif args.norm == 'zscore':
+        mu = dataset.mean(axis=0)
+        std = dataset.std(axis=0)
+        transform = lambda x: (x - mu) / (std + 1e-8)
+        inv_transform = lambda x: x * std + mu
+        transform_params = {'mu':mu, 'std':std, 'method':'zscore'}
+    elif args.norm == 'minmax':
+        min_ = dataset.min(axis=0)
+        max_ = dataset.max(axis=0)
+        transform = lambda x: (x - min_) / (max_ - min_ + 1e-8)
+        inv_transform = lambda x: x * (max_ - min_) + min_
+        transform_params = {'min':min_, 'max':max_, 'method':'minmax'}
+    elif args.norm == 'none':
+        transform = lambda x: x
+        transform_params = {'method':'none'}
+    else:
+        raise ValueError('unrecognized normalization method')
+    
+    torch.save(transform_params, args.out + '/obs_transform_params.pt')
 
     print('saving obs to disk...')
     os.makedirs(args.out + '/obs/', exist_ok=True)
     for i, (sig_id, y) in enumerate(zip(sig_ids, dataset)): 
         print(f'progress: {i}/{len(sig_ids)}', end='\r')
+        y = transform(y)
         y = torch.tensor(y, dtype=torch.float32)
         torch.save(y, args.out + '/obs/' + sig_id + '.pt') 
     print('# LINCS observations:', i+1)
@@ -375,34 +517,7 @@ if __name__ == '__main__':
     print('saving data object...')
     torch.save(data, args.out + '/data.pt')
 
-
-    '''
-    ##########################################################################################
-    ##########################################################################################
-    ####################                    PRISM                         ####################
-    ##########################################################################################
-    ##########################################################################################
-     # redo this with new node indexing 
-    print('making PRISM data...')
-
-    prism = utils.load_prism(args.data, cellspace=data.cellspace, drugspace=data.drugspace)
-
-    if os.path.exists(f'{args.out}/obs_prism/'): shutil.rmtree(f'{args.out}/obs_prism/')
-    os.mkdir(f'{args.out}/obs_prism/')
-
-    for i, row in prism.iterrows(): 
-        if i%10 == 0: print(f'progress: {i}/{len(prism)}', end='\r')
-
-        obsp = row2obs_prism(row, data, meta, omics, eps=args.dose_trans_eps)
-
-        torch.save(obsp, f'{args.out}/obs_prism/{obsp["sig_id"]}.pt')
-
-    np.save(args.out + '/prism_ids', prism.sig_id.values, allow_pickle=True)
-
-    print('PRISM data made. ')
-    '''
-
-
     with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
+'''
 
 
