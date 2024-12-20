@@ -22,7 +22,7 @@ def get_args():
                         help="path to data directory")
     parser.add_argument("--fold_dir", type=str, default='/partitions/',
                         help="relative path (from data) to partition splits")
-    parser.add_argument("--out", type=str, default='../output/',
+    parser.add_argument("--out", type=str, default='../../output/GNN/',
                         help="path to output directory")
     parser.add_argument("--gnn", type=str, default='GAT',
                         help="GNN architecture: [GAT, GIN]")
@@ -190,6 +190,8 @@ if __name__ == '__main__':
     print()
     print(args)
     print()
+
+    os.makedirs(args.out, exist_ok=True)
 
     uid = str(uuid.uuid4())
     args.uid = uid
