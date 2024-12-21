@@ -68,7 +68,7 @@ for ((i=1; i<=N; i++)); do
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, norm=$norm, jk=$jk, batch=$batch, conv=$conv, wd=$wd)"
+        echo "submitting job: GNN (lr=$lr, do=$do, c=$c, lay=$lay, norm=$norm, jk=$jk, batch=$batch, conv=$conv, wd=$wd)"
 
         # SUBMIT SBATCH JOB 
 
@@ -87,7 +87,7 @@ for ((i=1; i<=N; i++)); do
 
 conda activate gsnn-lib
 cd $ROOT
-python train_gnn.py --data $PROC \
+python train_gnn_lincs.py --data $PROC \
                     --out $OUT \
                     --layers $lay \
                     --dropout $do \

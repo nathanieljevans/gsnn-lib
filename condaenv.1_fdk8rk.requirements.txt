@@ -1,0 +1,9 @@
+tensorboardX
+ipykernel
+umap-learn
+biopython
+torch-sparse
+adjustText
+scperturb
+pykeops
+geomloss

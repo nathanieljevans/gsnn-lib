@@ -4,21 +4,23 @@
 ########## PARAMS #########
 
 SCRIPT_DIR=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/slurm/
+PROC_DIR=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/data_proc/
+EXTDATA=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/extdata/
 
-## Experiment details 
+# Experiment details 
 NAME=exp1
-DATA=../../data/
-OUT=../output/$NAME/
+DATA=/home/exacloud/gscratch/NGSdev/evans/data/
+OUT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
 EPOCHS=100
 
 # Graph construction details
 FEATURE_SPACE="landmark"		# options: landmark, best-inferred, inferred [e.g., "landmark best-inferred"]
-DTI_SOURCES="clue targetome" 	# options: clue, targetome, stitch [e.g., "clue targetome stitch"]
+DTI_SOURCES=("clue" "targetome") 	# options: clue, targetome, stitch [e.g., "clue targetome stitch"]
 DRUGS='none'					# broad ids (space separated); "none" will include all valid drugs
 LINCS='none'					# uniprot lincs outputs (space separated); "none" will include all valid lincs
-LINES='none'					# cell lines (LINCS `cell_iname`) (space separated); "none" will include all valid lines
-OMICS='expr mut cnv methyl'		# which omics to include
+CELL_LINES='none'					# cell lines (LINCS `cell_iname`) (space separated); "none" will include all valid lines
+OMICS=('expr' 'mut' 'cnv' 'methyl')		# which omics to include
 OMICS_Q_FILTER=0.25				# omics with the std in this quantile will not be included in the graph (remove low variance features)
 TIME=24							# LINCS measurement time (hours); [recommend: 24; options: 6, 24, 48, 72]
 FILTER_DEPTH=10					# Primary criteria for molecular entity inclusion. 

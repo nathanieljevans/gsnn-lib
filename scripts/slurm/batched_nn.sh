@@ -66,7 +66,7 @@ for ((i=1; i<=N; i++)); do
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase)"
+        echo "submitting job: NN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase)"
 
         # SUBMIT SBATCH JOB 
 
@@ -76,7 +76,7 @@ for ((i=1; i<=N; i++)); do
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
-#SBATCH --partition=exacloud
+#SBATCH --partition=batch
 #SBATCH --time=$TIME
 #SBATCH --mem=$MEM
 #SBATCH --output=$OUT2/log.%j.out
@@ -84,7 +84,7 @@ for ((i=1; i<=N; i++)); do
 
 conda activate gsnn-lib
 cd $ROOT
-python train_nn.py --data $PROC \
+python train_nn_lincs.py --data $PROC \
                   --out $OUT \
                   --layers $lay \
                   --dropout $do \

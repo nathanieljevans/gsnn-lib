@@ -17,27 +17,29 @@ rm -r $OUT
 mkdir -p $OUT
 mkdir -p $PROC
 
+source ~/.zshrc
 conda activate gsnn-lib
 
-python make_data.py --data $DATA \
+python $PROC_DIR/make_lincs_data.py --data $DATA \
 					--out $PROC \
+					--extdata $EXTDATA\
 					--feature_space $FEATURE_SPACE \
 					--dti_sources $DTI_SOURCES \
 					--drugs $DRUGS \
-					--lines $LINES \
+					--lines $CELL_LINES \
 					--lincs $LINCS \
 					--omics $OMICS \
 					--omics_q_filter $OMICS_Q_FILTER \
 					--time $TIME \
 					--filter_depth $FILTER_DEPTH \
 					--min_obs_per_drug $MIN_OBS_PER_DRUG \
-					$UNDIRECTED >> $PROC/make_lincs_data.out
+					$UNDIRECTED #>> $PROC/make_lincs_data.out
 
-python create_data_splits.py --data $DATA \
+python $PROC_DIR/create_lincs_splits.py --data $DATA \
 							 --proc $PROC \
 							 --outer_k $N_FOLDS \
 							 --val_prop $VAL_PROP \
-							 --hold_out $HOLD_OUT >> $PROC/create_data_splits.out
+							 --hold_out $HOLD_OUT #>> $PROC/create_data_splits.out
 
 # perform MC hyper-parameter search
 $SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N ""

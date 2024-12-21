@@ -92,7 +92,7 @@ for ((i=1; i<=N; i++)); do
 
 conda activate gsnn-lib
 cd $ROOT
-python train_gsnn.py --data $PROC \
+python train_gsnn_lincs.py --data $PROC \
                      --out $OUT \
                      --dropout $do \
                      --channels $c \

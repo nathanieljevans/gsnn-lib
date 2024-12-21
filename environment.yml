@@ -7,13 +7,11 @@ channels:
     - nvidia 
     - pyg
     - conda-forge
-    - mcs07
     - defaults 
 
 dependencies:
     - python
     - matplotlib
-    - pubchempy
     - pyg
     - pytorch
     - pytorch-cuda
@@ -24,10 +22,8 @@ dependencies:
     - tensorboard
     - numpy==1.26 # omnipath not compatible with 2+
     - omnipath
-    - torch-scatter
     - shapely
     - statsmodels
-    - rdkit
     - shap
     - pip
     - pip:
@@ -36,7 +32,6 @@ dependencies:
         - umap-learn
         - biopython
         - torch-sparse
-        - obonet
         - adjustText
         - scperturb
         - pykeops
