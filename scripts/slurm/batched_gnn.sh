@@ -44,7 +44,7 @@ echo "#######################################"
 mkdir -p $OUT
 
 # make slurm log dir
-OUT2=$OUT/slurm_logs__GNN/
+OUT2=$OUT/SLURM_LOG_GNN/
 if [ -d "$OUT2" ]; then
 	echo "slurm output log dir exists. Erasing contents..."
         rm -r "$OUT2"/*

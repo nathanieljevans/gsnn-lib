@@ -66,7 +66,7 @@ for ((i=1; i<=N; i++)); do
 
         jobid=$((jobid+1))
 
-        echo "submitting job: NN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase)"
+        echo "submitting job: NN (lr=$lr, do=$do, c=$c, lay=$lay, arch=$arch, batch=$batch, ldim=$ldim)"
 
         # SUBMIT SBATCH JOB 
 
