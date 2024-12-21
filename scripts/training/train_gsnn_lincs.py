@@ -27,11 +27,11 @@ warnings.filterwarnings(
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default='../proc/lincs/',
+    parser.add_argument("--data", type=str, default='../../proc/lincs/',
                         help="path to data directory")
     parser.add_argument("--fold_dir", type=str, default='/partitions/',
                         help="relative path (from data) to partition splits information (dict .pt file)")
-    parser.add_argument("--out", type=str, default='../output/',
+    parser.add_argument("--out", type=str, default='../../GSNN/output/',
                         help="path to output directory")
     parser.add_argument("--batch", type=int, default=25,
                         help="training batch size")
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 
     # optionally randomize graph
     # NOTE: all folds will have the same randomized graph structure
-    if args.randomize: data.edge_index = utils.randomize(data)
+    if args.randomize: data.edge_index_dict = utils.randomize(data)
 
     folds = np.sort([x for x in os.listdir(f'{args.data}/{args.fold_dir}') if 'lincs' in x])
     print('# folds:', len(folds))
