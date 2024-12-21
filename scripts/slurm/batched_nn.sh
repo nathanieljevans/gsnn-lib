@@ -76,6 +76,7 @@ for ((i=1; i<=N; i++)); do
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
+#SBATCH --partition=exacloud
 #SBATCH --time=$TIME
 #SBATCH --mem=$MEM
 #SBATCH --output=$OUT2/log.%j.out
