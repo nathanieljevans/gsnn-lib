@@ -19,7 +19,7 @@ from gsnn_lib.proc.lincs.load_methyl import load_methyl
 from gsnn_lib.proc.lincs.load_expr import load_expr
 from gsnn_lib.proc.lincs.load_cnv import load_cnv
 from gsnn_lib.proc.lincs.load_mut import load_mut
-from gsnn_lib.proc.lincs.utils import get_x_drug_conc, load_prism, get_geneid2uniprot
+from gsnn_lib.proc.lincs.utils import get_x_drug_conc, get_geneid2uniprot
 from gsnn_lib.proc.omnipath.utils import filter_func_nodes
 from gsnn_lib.proc import omnipath
 from gsnn_lib.proc import dti
@@ -29,10 +29,10 @@ from gsnn_lib.proc.sc.load import get_SrivatsanTrapnell2020
 def get_args(): 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--data",               type=str,               default='../../data/',                      help="path to data directory")
-    parser.add_argument("--out",                type=str,               default='../output/sciplex3/',               help="path to data directory")
-    parser.add_argument("--extdata",            type=str,               default='../extdata/',                      help="path to data directory")
-    parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
+    parser.add_argument("--data",               type=str,               default='../../../data/',                      help="path to data directory")
+    parser.add_argument("--out",                type=str,               default='../../output/sciplex3/',               help="path to data directory")
+    parser.add_argument("--extdata",            type=str,               default='../../extdata/',                      help="path to data directory")
+    parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome', 'stitch'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
     parser.add_argument("--filter_depth",       type=int,               default=10,                                 help="the depth to search for upstream drugs and downstream lincs in the node filter process")
     parser.add_argument("--n_genes",            type=int,               default=2000,                               help="selection of the top N high-variance RNA genes")
     parser.add_argument("--undirected",         action='store_true',    default=False,                              help="make all function edges undirected")
@@ -85,7 +85,6 @@ if __name__ == '__main__':
                                                         min_cells_per_gene=1000, 
                                                         min_ncounts_per_obs=100,
                                                         n_top_variable_genes=args.n_genes)
-    
 
     # get overlapping drugs between sc exp and known targets 
     sc_drugs = drug_adata.obs.pert_id.unique()

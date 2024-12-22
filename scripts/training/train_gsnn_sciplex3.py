@@ -30,7 +30,7 @@ def get_args():
     parser.add_argument("--out", type=str, default='../../output/sciplex3/gsnn/',
                         help="path to output directory")
     
-    parser.add_argument("--iters", type=int, default=1000,
+    parser.add_argument("--iters", type=int, default=100,
                         help="number of training iterations")
     
     parser.add_argument("--channels", type=int, default=8,
@@ -41,6 +41,9 @@ def get_args():
     
     parser.add_argument("--dropout", type=float, default=0.,
                         help="")
+    
+    parser.add_argument("--lr", type=float, default=1e-3,
+                        help="learning rate for the transport optimization")
         
     parser.add_argument("--save_every", type=int, default=10,
                         help="saves model results and weights every X epochs")
@@ -49,58 +52,28 @@ def get_args():
                         help="training batch size")
     
     parser.add_argument("--norm", type=str, default='layer',
-                        help="GSNN normalization method to use [layer, none]")
+                        help="GSNN normalization method to use [layer, batch, softmax, none]")
     
     parser.add_argument("--wd", type=float, default=0.,
                         help="weight decay")
     
-    parser.add_argument("--method", type=str, default='shd',
-                        help="transport optimization strategy to use [not, shd, icnn]")
-    
-    parser.add_argument("--T_lr", type=float, default=1e-3,
-                        help="learning rate for T")
-    
-    parser.add_argument("--T_arch", type=str, default='gsnn',
-                        help="architecture for T [gsnn, nn]")
-    
-    parser.add_argument("--drugs", nargs='+', default=None, 
-                        help="drug filters") 
-    
-    parser.add_argument("--cell_lines", nargs='+', default=None,
-                        help="cell line filters")
-    
-    parser.add_argument("--f_lr", type=float, default=1e-4,
-                        help="learning rate for f [relevant only if `method='not'`]")
-    
-    parser.add_argument("--f_channels", type=int, default=124,  
-                         help="number of hidden channels for f [relevant only if `method='not'`]")
-    
-    parser.add_argument("--f_layers", type=int, default=2,  
-                         help="number of hidden layers for f [relevant only if `method='not'`]")
-    
-    parser.add_argument("--f_iters", type=int, default=1,
-                        help="number of iterations for f [relevant only if `method='not'`]")
-    
-    parser.add_argument("--T_iters", type=int, default=4,
-                        help="number of iterations for T [relevant only if `method='not'`]")
-    
     parser.add_argument("--blur", type=float, default=0.05,
-                        help="the sinkhorn blur parameter [relevant only if `method='shd'`]")
+                        help="the sinkhorn blur parameter")
     
     parser.add_argument("--scaling", type=float, default=0.9,
-                        help="the sinkhorn scaling parameter [0,1]; higher is more accurate but slower [relevant only if `method='shd'`]")
+                        help="the sinkhorn scaling parameter [0,1]; higher is more accurate but slower")
     
     parser.add_argument("--reach", type=float, default=None,
-                        help="the reach parameter for the sinkhorn distance; beneficial in noisy settings with outliers [relevant only if `method='shd'`]")
+                        help="the reach parameter for the sinkhorn distance; beneficial in noisy settings with outliers ")
+    
+    parser.add_argument("--p", type=int, default=2,
+                        help="the p-norm for the sinkhorn distance; 1 is L1, 2 is L2")
     
     parser.add_argument("--checkpoint", action='store_true',
                         help="checkpoint GSNN layer gradients; will reduce memory but increase computation time")
     
-    parser.add_argument("--icnn_reg", type=float, default=0.1,
-                        help="regularization for ICNN positive weights [relevant only if `method='icnn'`]")
-    
-    parser.add_argument("--icnn_g_iters", type=int, default=10,
-                        help="number of g iters per f iter [relevant only if `method='icnn'`]")
+    parser.add_argument("--debias", action='store_true',
+                        help="debias argmuent to the sinkhorn distance")
     
     args = parser.parse_args()
 
@@ -119,21 +92,15 @@ if __name__ == '__main__':
     
     data = torch.load(f'{args.data}/data.pt')
 
+    args.arch = 'gsnn'
     sampler = scSampler(f'{args.data}/',
-                        drug_filter=args.drugs,
-                        cell_filter=args.cell_lines)
+                        drug_filter=None,
+                        cell_filter=None)
     
-    if args.method == 'not': 
-        trainer = NOT(args, data, sampler)
-    elif args.method == 'shd': 
-        trainer = SHD(args, data, sampler)
-    elif args.method == 'icnn':
-        assert args.T_arch == 'nn', 'ICNN only supports nn architecture for T'
-        trainer = OTICNN(args, data, sampler)
-    else:
-        raise ValueError('method not recognized [shd, not]')
-
+    trainer = SHD(args, data)
+    
     mmds = []; shds = []; wasss = []; mu_r2 = []
+
     for i in range(args.iters): 
 
         loss = trainer.step(sampler)
