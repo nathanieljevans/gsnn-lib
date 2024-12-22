@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import ast
@@ -149,7 +147,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Aggregate hparams and metrics from UUID folders.")
-    parser.add_argument("root", help="Path to the root directory containing subfolders.")
+    parser.add_argument("--root", help="Path to the root directory containing subfolders.")
     args = parser.parse_args()
     
-    aggregate_results(args.root, args.root)
+    aggregate_results(args.root, args.root + '/results.csv')
