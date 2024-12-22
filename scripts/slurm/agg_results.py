@@ -27,7 +27,8 @@ def parse_namespace_line(line: str) -> dict:
     
     # Safely evaluate the string as a Python literal
     try:
-        parsed_dict = ast.literal_eval(dict_expression)
+        #parsed_dict = ast.literal_eval(dict_expression)
+        parsed_dict = eval(dict_expression)
     except Exception as e:
         raise ValueError(f"Unable to parse Namespace line:\n{line}\nError: {e}")
 
