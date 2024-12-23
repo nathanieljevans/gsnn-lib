@@ -10,16 +10,16 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 ###            HYPER-PARAMETER SEARCH SPACE         ###
 #######################################################
 #######################################################
-lr_list=("1e-2" "1e-3" "1e-4")
+lr_list=("5e-3" "1e-3" "5e-4")
 do_list=("0" "0.1")
-c_list=("3" "5" "10")
-lay_list=("10" "15" "20")
+c_list=("4" "5" "6" "7" "8" "9" "10")
+lay_list=("10" "12" "15")
 ase_list=("" "--add_function_self_edges")
 share_list=("" "--share_layers")
 norm_list=("none" "batch" "layer" "softmax")
 bias_list=("" "--no_bias")
 wd_list=("0" "1e-6" "1e-8")
-batch_list=("32" "64" "128")
+batch_list=("64" "96" "128")
 #######################################################
 #######################################################
 #######################################################
@@ -90,6 +90,7 @@ for ((i=1; i<=N; i++)); do
 #SBATCH --output=$OUT2/log.%j.out
 #SBATCH --error=$OUT2/log.%j.err
 
+source ~/.zshrc
 conda activate gsnn-lib
 cd $ROOT
 python train_gsnn_lincs.py --data $PROC \

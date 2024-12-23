@@ -16,6 +16,11 @@ from gsnn_lib.eval.eval import agg_fold_metrics, agg_fold_predictions, load_y, g
 import warnings
 warnings.filterwarnings("ignore")
 
+# BUG: "received 0 items of ancdata" error (soln: https://stackoverflow.com/questions/71642653/how-to-resolve-the-error-runtimeerror-received-0-items-of-ancdata ; @KingLiu)
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, default='../../proc/lincs/',
@@ -28,7 +33,7 @@ def get_args():
                         help="GNN architecture: [GAT, GIN]")
     parser.add_argument("--batch", type=int, default=50,
                         help="training batch size")
-    parser.add_argument("--workers", type=int, default=12,
+    parser.add_argument("--workers", type=int, default=6,
                         help="number of workers for dataloaders")
     parser.add_argument("--epochs", type=int, default=50,
                         help="number of training epochs")
@@ -53,7 +58,7 @@ def get_args():
     parser.add_argument("--norm", type=str, default='layer',
                         help="normalization: [none, batch, layer, pairnorm]")
     parser.add_argument("--jk", type=str, default='cat',
-                        help="jumping knowledge style: [cat, max, lstm]")
+                        help="jumping knowledge style: [cat, max, lstm, none]")
     parser.add_argument("--clip_grad", type=float, default=None,
                         help="gradient clipping")
     parser.add_argument("--sched", type=str, default='none',

@@ -18,7 +18,7 @@ lay_list=("1" "2" "4")
 arch_list=('nn' 'ae')
 batch_list=("256" "512" "1024")
 wd_list=("0" "1e-6" "1e-8")
-ldim_list=("64" "128" "256")
+ldim_list=("32" "64" "128")
 #######################################################
 #######################################################
 #######################################################
@@ -82,6 +82,7 @@ for ((i=1; i<=N; i++)); do
 #SBATCH --output=$OUT2/log.%j.out
 #SBATCH --error=$OUT2/log.%j.err
 
+source ~/.zshrc
 conda activate gsnn-lib
 cd $ROOT
 python train_nn_lincs.py --data $PROC \

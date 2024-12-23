@@ -16,8 +16,8 @@ c_list=("16" "32" "64")
 lay_list=("3" "5" "10")
 wd_list=("0" "1e-6" "1e-8")
 norm_list=("none" "batch" "layer" "pairnorm")
-jk_list=("cat" "max" "lstm")
-batch_list=("32" "64" "128")
+jk_list=("cat" "max" "none")
+batch_list=("16" "32")
 conv_list=("GIN" "GAT")
 #######################################################
 #######################################################
@@ -85,6 +85,7 @@ for ((i=1; i<=N; i++)); do
 #SBATCH --output=$OUT2/log.%j.out
 #SBATCH --error=$OUT2/log.%j.err
 
+source ~/.zshrc
 conda activate gsnn-lib
 cd $ROOT
 python train_gnn_lincs.py --data $PROC \
