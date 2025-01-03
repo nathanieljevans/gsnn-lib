@@ -10,15 +10,32 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 ###            HYPER-PARAMETER SEARCH SPACE         ###
 #######################################################
 #######################################################
-lr_list=("1e-2" "1e-3" "1e-4")
-do_list=("0" "0.1")
-c_list=("16" "32" "64")
-lay_list=("3" "5" "10")
-wd_list=("0" "1e-6" "1e-8")
-norm_list=("none" "batch" "layer" "pairnorm")
-jk_list=("cat" "max" "none")
-batch_list=("16" "32")
-conv_list=("GIN" "GAT")
+SS=$8
+if [[ "$SS" == "large" ]]
+then 
+        lr_list=("1e-2" "1e-3" "1e-4")
+        do_list=("0" "0.1")
+        c_list=("16" "32" "64")
+        lay_list=("3" "5" "10")
+        wd_list=("0" "1e-6" "1e-8")
+        norm_list=("none" "batch" "layer" "pairnorm")
+        jk_list=("cat" "max" "none")
+        batch_list=("16" "32")
+        conv_list=("GIN" "GAT")
+        optim_list=("adam" "adan")
+else
+        lr_list=("1e-3" "1e-4")
+        do_list=("0")
+        c_list=("16" "32")
+        lay_list=("3" "10")
+        wd_list=("0")
+        norm_list=("layer")
+        jk_list=("cat")
+        batch_list=("16" "32")
+        conv_list=("GIN" "GAT")
+        optim_list=("adan")
+fi
+
 #######################################################
 #######################################################
 #######################################################
@@ -65,10 +82,11 @@ for ((i=1; i<=N; i++)); do
         batch=$(echo "${batch_list[@]}" | tr ' ' '\n' | shuf -n 1)
         conv=$(echo "${conv_list[@]}" | tr ' ' '\n' | shuf -n 1)
         wd=$(echo "${wd_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        optimm=$(echo "${optim_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GNN (lr=$lr, do=$do, c=$c, lay=$lay, norm=$norm, jk=$jk, batch=$batch, conv=$conv, wd=$wd)"
+        echo "submitting job: GNN (lr=$lr, do=$do, c=$c, lay=$lay, norm=$norm, jk=$jk, batch=$batch, conv=$conv, wd=$wd, optim=$optimm)"
 
         # SUBMIT SBATCH JOB 
 
@@ -99,6 +117,7 @@ python train_gnn_lincs.py --data $PROC \
                     --jk $jk \
                     --norm $norm \
                     --wd $wd \
+                    --optim $optimm \
                     --batch $batch
 
 EOF

@@ -32,7 +32,7 @@ class GSNNTrainer(Trainer):
         yhat = self.model(x)
         return yhat, y
 
-    def _compute_metrics(self, y, yhat, loss):
+    def _compute_metrics(self, y, yhat, loss, eval=False):
         """
         Compute metrics given numpy arrays of ground truths and predictions.
         
@@ -44,6 +44,7 @@ class GSNNTrainer(Trainer):
         Returns:
             dict: A dictionary of computed metrics.
         """
+        
         # Compute R^2 score. Using variance_weighted as per original code
         r2 = r2_score(y, yhat, multioutput='variance_weighted')
         

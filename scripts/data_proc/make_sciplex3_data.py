@@ -29,17 +29,49 @@ from gsnn_lib.proc.sc.load import get_SrivatsanTrapnell2020
 def get_args(): 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--data",               type=str,               default='../../../data/',                      help="path to data directory")
-    parser.add_argument("--out",                type=str,               default='../../output/sciplex3/',               help="path to data directory")
-    parser.add_argument("--extdata",            type=str,               default='../../extdata/',                      help="path to data directory")
-    parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome', 'stitch'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
-    parser.add_argument("--filter_depth",       type=int,               default=10,                                 help="the depth to search for upstream drugs and downstream lincs in the node filter process")
-    parser.add_argument("--n_genes",            type=int,               default=2000,                               help="selection of the top N high-variance RNA genes")
-    parser.add_argument("--undirected",         action='store_true',    default=False,                              help="make all function edges undirected")
-    parser.add_argument("--seed",               type=int,               default=0,                                  help="randomization seed")
-    parser.add_argument('--val_prop',           type=float,             default=0.1,                                help='proportion of cells to assign to validation partition')
-    parser.add_argument('--test_prop',          type=float,             default=0.1,                                help='proportion of cells to assign to test partition')
-    parser.add_argument('--dose_eps_',          type=float,             default=1e-6,                               help='dose scaling epsilon [recommended: 1e-6]')
+    parser.add_argument("--data",                   type=str,               default='../../../data/',                   
+                        help="path to data directory")
+    
+    parser.add_argument("--out",                    type=str,               default='../../proc/sciplex3/',           
+                        help="path to data directory")
+    
+    parser.add_argument("--extdata",                type=str,               default='../../extdata/',                       
+                        help="path to data directory")
+
+    parser.add_argument('--dti_sources',            nargs='+',              default=['clue', 'targetome', 'stitch'],        
+                        help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
+
+    parser.add_argument("--filter_depth",           type=int,               default=10,                                     
+                        help="the depth to search for upstream drugs and downstream lincs in the node filter process")
+
+    parser.add_argument("--n_genes",                type=int,               default=2000,                                   
+                        help="selection of the top N high-variance RNA genes")
+
+    parser.add_argument("--undirected",             action='store_true',    default=False,                                  
+                        help="make all function edges undirected")
+
+    parser.add_argument("--seed",                   type=int,               default=0,                                      
+                        help="randomization seed")
+
+    parser.add_argument('--val_prop',               type=float,             default=0.1,                                    
+                        help='proportion of cells to assign to validation partition')
+
+    parser.add_argument('--test_prop',              type=float,             default=0.15,                                   
+                        help='proportion of cells to assign to test partition')
+
+    parser.add_argument('--dose_eps_',              type=float,             default=1e-6,                                   
+                        help='dose scaling epsilon [recommended: 1e-6]')
+
+    parser.add_argument('--min_ngenes_per_cell',    type=int,              default=200,                                 
+                        help='minimum number of genes expressed per cell')
+
+    parser.add_argument('--min_cells_per_gene',     type=int,              default=100,                                  
+                        help='minimum number of cells expressing a gene')
+
+    parser.add_argument('--min_ncounts_per_obs',    type=int,             default=100,                                  
+                        help='minimum number of counts per observation')
+
+
     args = parser.parse_args() 
 
     return args 
@@ -53,6 +85,11 @@ if __name__ == '__main__':
 
     if not os.path.exists(args.out): 
         print('making output directory...')
+        os.makedirs(args.out, exist_ok=True)
+    else: 
+        # delete and remake 
+        print('output directory already exists. deleting and remaking...')
+        os.system(f'rm -r {args.out}')
         os.makedirs(args.out, exist_ok=True)
 
     with open(f'{args.out}/args.log', 'w') as f: 
@@ -81,18 +118,23 @@ if __name__ == '__main__':
                                                         time=24, 
                                                         max_prct_mito=0, 
                                                         max_prct_ribo=0, 
-                                                        min_ngenes_per_cell=100,
-                                                        min_cells_per_gene=1000, 
-                                                        min_ncounts_per_obs=100,
+                                                        min_ngenes_per_cell=args.min_ngenes_per_cell,
+                                                        min_cells_per_gene=args.min_cells_per_gene, 
+                                                        min_ncounts_per_obs=args.min_ncounts_per_obs,
                                                         n_top_variable_genes=args.n_genes)
+    
+    # TODO count number of cells per condition and filter if less than min_cells_per_cond
+    # TODO: need to double check that obs/var modifications aren't changing adata indexing... 
 
     # get overlapping drugs between sc exp and known targets 
     sc_drugs = drug_adata.obs.pert_id.unique()
     dti_drugs = targets.pert_id.unique()
     args.drugs = list(set(sc_drugs.tolist()).intersection(set(dti_drugs.tolist())))
+    print(f'# drugs [in dataset] with known targets: {len(args.drugs)}')
      
     # "lincs" is deprecated here but we will use it in place of "outputs"
     args.lincs = drug_adata.var.uniprot.unique()
+    print(f'# LINCS nodes (pre-filter): {len(args.lincs)}')
 
     # filter non-overlapping drugs 
     drug_adata = drug_adata[drug_adata.obs.pert_id.isin(args.drugs)]
@@ -241,9 +283,6 @@ if __name__ == '__main__':
         torch.save(x, f'{args.out}/PROC/unperturbed_{i}_{row.pert_id}_{row.dose_value}_{row.cell_line}.pt')
     print()
 
-    # BUG: this doesn't work for some reason - pickle instead
-    #ctrl_adata.write_h5ad(args.out + '/ctrl_adata.h5')
-
     x_drug_dict = {} 
     # this will be more efficient then saving all unique drug concs 
     # x_drug_dict[drug](conc_um) -> x_drug_conc 
@@ -263,7 +302,7 @@ if __name__ == '__main__':
     adata_idx_order2 = [out2idx['RNAOUT__' + rna] for rna in drug_adata.var.uniprot.values.tolist()]
     drug_adata.obs.reset_index(inplace=True)
     for i,row in drug_adata.obs.iterrows():
-        print(f'writing sc outputs to disk... {i}/{len(drug_adata.obs)}', end='\r') 
+        print(f'writing sc PERTURBED to disk... {i}/{len(drug_adata.obs)}', end='\r') 
         x = torch.zeros((len(data.node_names_dict['output']),), dtype=torch.float32)
         x[adata_idx_order2] = torch.tensor(drug_adata[i].X, dtype=torch.float32)
         x = x.detach().contiguous()
@@ -271,6 +310,15 @@ if __name__ == '__main__':
     print()
 
     torch.save(data, args.out + '/data.pt')
+
+    ctrl_adata.obs[['pert_id', 'dose_value', 'cell_line']].to_csv(args.out + '/ctrl_meta.csv', index=False)
+    drug_adata.obs[['pert_id', 'dose_value', 'cell_line']].to_csv(args.out + '/drug_meta.csv', index=False)
+    
+    '''
+    ##################################################################################################################
+    ##################################       CREATE DATA PARTITIONS       ############################################
+    ##################################################################################################################
+
 
     # create data partitions (train, valid, test)
     print('creating data partitions...')
@@ -281,8 +329,22 @@ if __name__ == '__main__':
     n_test = int(args.test_prop * n)
     n_train = n - n_val - n_test
     idxs_train = idxs[:n_train]
-    idxs_val = idxs[n_train:n_train+n_val]
-    idxs_test = idxs[n_train+n_val:]
+    idxs_val = idxs[n_train:(n_train+n_val)]
+    idxs_test = idxs[(n_train+n_val):]
+
+    # save adata
+    drug_adata.obs = drug_adata.obs.assign(train = False, test = False, val = False)
+    drug_adata.obs.loc[idxs_train, 'train'] = True
+    drug_adata.obs.loc[idxs_val, 'val'] = True
+    drug_adata.obs.loc[idxs_test, 'test'] = True
+    drug_adata.write_h5ad(args.out + '/drug_adata.h5')
+
+    # BUG: this doesn't work for some reason - pickle instead
+    # ctrl_adata.write_h5ad(args.out + '/ctrl_adata.h5')
+
+    # save obs as meta 
+    drug_adata.obs.to_csv(args.out + '/conditions.csv', index=False)
+
 
     torch.save(torch.tensor(idxs_train, dtype=torch.long), args.out + '/train_idxs.pt')
     torch.save(torch.tensor(idxs_val, dtype=torch.long), args.out + '/val_idxs.pt')
@@ -291,3 +353,4 @@ if __name__ == '__main__':
     with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
 
 
+'''

@@ -84,24 +84,27 @@ class Trainer(ABC):
                     yhat, y = self._run_batch(batch)
                     loss = self.criterion(yhat, y).item()
                 
-                r2 = r2_score(y.detach().cpu().numpy(), yhat.detach().cpu().numpy(), multioutput='variance_weighted')
-                r = np.corrcoef(y.detach().cpu().numpy().ravel(), yhat.detach().cpu().numpy().ravel())[0, 1]
+                batch_metrics = self._compute_metrics(y.detach().cpu().numpy(), yhat.detach().cpu().numpy(), loss)
                     
                 epoch_loss.append(loss)
                 all_y.append(y.detach().cpu().numpy())
                 all_yhat.append(yhat.detach().cpu().numpy())
-                print(f'[batch:{i+1}/{len(dataloader)}...loss:{loss:.2f}...r2:{r2:.2f}...r:{r:.2f}]', end='\r')
+
+                # Print batch metrics
+                metric_str = '...'.join([f'{k}: {v:.2f}' for k,v in batch_metrics.items()])
+                print(f'[batch:{i+1}/{len(dataloader)}...{metric_str}', end='\r')
 
         # Convert predictions and targets
         all_y = np.concatenate(all_y, axis=0)
         all_yhat = np.concatenate(all_yhat, axis=0)
         
         # Compute metrics
-        metrics = self._compute_metrics(all_y, all_yhat, np.mean(epoch_loss))
+        # Note `eval=True` computes (potentially) different metrics than eval=False 
+        metrics = self._compute_metrics(all_y, all_yhat, np.mean(epoch_loss), eval=True)
         return metrics, all_y, all_yhat
 
     @abstractmethod
-    def _compute_metrics(self, y, yhat, loss):
+    def _compute_metrics(self, y, yhat, loss, eval=False):
         """
         Compute and return metrics given predictions and targets.
         Derived classes can implement custom metrics if needed.
@@ -152,8 +155,9 @@ class Trainer(ABC):
                 break
 
             elapsed = time.time() - start
-            print(f"Epoch {epoch}/{epochs}, Train Loss: {train_metrics['loss']:.4f}, Val {metric_key}: {val_metrics[metric_key]:.4f}, Time: {elapsed:.2f}s")
-
+            val_metric_str = '...'.join([f'{k}: {v:.3E}' for k,v in val_metrics.items()])
+            print(f"Epoch {epoch}/{epochs}, Train Loss: {train_metrics['loss']:.4f} || -> Val -> || {val_metric_str} || Time Elapsed: {elapsed:.2f}s")
+            
         # Load best model weights if available
         if self.best_model_state is not None:
             self.model.load_state_dict(self.best_model_state)

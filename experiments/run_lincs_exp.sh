@@ -42,9 +42,9 @@ python $PROC_DIR/create_lincs_splits.py --data $DATA \
 							 --hold_out $HOLD_OUT #>> $PROC/create_data_splits.out
 
 # perform MC hyper-parameter search
-$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N ""
-$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N --randomize
+$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N "" $SEARCHSPACE
+$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N --randomize $SEARCHSPACE
 
-$SCRIPT_DIR/batched_nn.sh $PROC $OUT $EPOCHS $NN_TIME $NN_MEM $N
+$SCRIPT_DIR/batched_nn.sh $PROC $OUT $EPOCHS $NN_TIME $NN_MEM $N $SEARCHSPACE
 
-$SCRIPT_DIR/batched_gnn.sh $PROC $OUT $EPOCHS $GNN_TIME $GNN_MEM $N
+$SCRIPT_DIR/batched_gnn.sh $PROC $OUT $EPOCHS $GNN_TIME $GNN_MEM $N $SEARCHSPACE

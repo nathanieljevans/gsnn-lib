@@ -7,203 +7,113 @@ import numpy as np
 class scSampler: 
     '''Sample Px, Py from unperturbed and pertrubed single cell omics'''
 
-    def __init__(self, root, drug_filter=None, cell_filter=None):
+    def __init__(self, root, pert_ids, ctrl_ids, batch_size, ret_all=False):
         # TODO: how to handle partition splits... 
 
         self.root = root 
-        data = torch.load(root + '/data.pt')
-        self.data = data
-        self.dose_f_dict = data['x_dict']['drug_dict'] # dict to function: dose_f_dict[drug][dose_value_um] -> x_drug_inputs
+        self.data = torch.load(root + '/data.pt')
+        self.dose_f_dict = self.data['x_dict']['drug_dict'] # dict to function: dose_f_dict[drug][dose_value_um] -> x_drug_inputs
+        self.batch_size = batch_size
 
-        obs = os.listdir(self.root + '/PROC/')
-        meta = {'pert_type':[], 'id':[], 'adata_idx':[], 'dose':[], 'drug':[], 'cell_line':[], 'fpath':[]}
-        for i,o in enumerate(obs): 
-            typ, idx, pert_id, dose, line = o[:-2].split('_')
-            meta['pert_type'].append(typ)
-            meta['adata_idx'].append(idx)
-            meta['dose'].append(float(dose))
-            meta['drug'].append(pert_id)
-            meta['cell_line'].append(line)
-            meta['fpath'].append(self.root + '/PROC/' + o)
-            meta['id'].append(i)
-        self.meta = pd.DataFrame(meta)
+        # load meta data and filter to partition (train, test, val)
+        self.drugmeta = pd.read_csv(self.root + '/drug_meta.csv').loc[pert_ids]
+        self.drugmeta = self.drugmeta.assign(fpath = [f'perturbed_{i}_{row.pert_id}_{row.dose_value}_{row.cell_line}.pt' for i,row in self.drugmeta.iterrows()])
+        self.ctrlmeta = pd.read_csv(self.root + '/ctrl_meta.csv').loc[ctrl_ids]
+        self.ctrlmeta = self.ctrlmeta.assign(fpath = [f'unperturbed_{i}_{row.pert_id}_{row.dose_value}_{row.cell_line}.pt' for i,row in self.ctrlmeta.iterrows()])
 
-        self.conditions = self.meta[lambda x: x.pert_type == 'perturbed'].groupby(['drug', 'dose', 'cell_line'])[['id']].agg(list).reset_index()
-        if drug_filter is not None: self.conditions = self.conditions[lambda x: x.drug.isin(drug_filter)]
-        if cell_filter is not None: self.conditions = self.conditions[lambda x: x.cell_line.isin(cell_filter)]
-        
-        self.controls = self.meta[lambda x: x.pert_type == 'unperturbed'].groupby(['cell_line'])[['id']].agg(list)
+        # agg all indices by condition ; should produce a list of indices for each condition
+        self.cond2drugids = self.drugmeta.groupby(['pert_id', 'dose_value', 'cell_line']).apply(lambda x: x.index.tolist()).reset_index().rename(columns={0:'id'})
+        self.line2ctrlids = self.ctrlmeta.groupby(['cell_line']).apply(lambda x: x.index.tolist()).reset_index().rename(columns={0:'id'}).set_index('cell_line')
 
-        # in-distribution test/val assignments 
-        train_idx = torch.load(root + '/train_idxs.pt')
-        test_idx = torch.load(root + '/test_idxs.pt')
-        val_idx = torch.load(root + '/val_idxs.pt')
-
-        self.meta = self.meta.assign(train = False, test = False, val = False)
-        self.meta.loc[train_idx, 'train'] = True
-        self.meta.loc[test_idx, 'test'] = True
-        self.meta.loc[val_idx, 'val'] = True
-
-        # check that train,test,val are disjoint
-        assert self.meta[lambda x: x.train & x.test].shape[0] == 0, 'train and test overlap'
-        assert self.meta[lambda x: x.train & x.val].shape[0] == 0, 'train and val overlap'
-        assert self.meta[lambda x: x.test & x.val].shape[0] == 0, 'test and val overlap'
-        
-        self.drug_idxs = torch.tensor([i for i,n in enumerate(data['node_names_dict']['input']) if 'DRUG_' in n], dtype=torch.long)
+        self.drug_idxs = torch.tensor([i for i,n in enumerate(self.data['node_names_dict']['input']) if 'DRUG_' in n], dtype=torch.long)
         self.n_drugs = len(self.drug_idxs)
-        self.n_cell_lines = len(self.conditions.cell_line.unique())
-        self.cell2onehot = {cell:x for cell,x in zip(self.conditions.cell_line.unique(), torch.eye(self.n_cell_lines))}
-    
-    def sample_from_all_profiles(self, partition='train', verbose=True, N=None):
-        '''return unperturbed and perturbed profiles'''
-        
-        if partition == 'train':
-            meta = self.meta[lambda x: ~x.test & ~x.val]
-        elif partition == 'test':
-            meta = self.meta[lambda x: x.test]
-        elif partition == 'val':
-            meta = self.meta[lambda x: x.val]
-        else:
-            raise ValueError('partition must be "train" or "test" or "val"')
-        
-        if N is not None: 
-            if meta.shape[0] < N:
-                N = meta.shape[0]
-            meta = meta.sample(n=N, replace=False, axis=0)
-        
-        x = [] ; ii=0
-        for i,row in meta.iterrows():
-            if verbose: print(f'loading data... {ii}/{meta.shape[0]}', end='\r'); ii+=1
-            xx = torch.load(row.fpath)
-            if row.pert_type == 'unperturbed':
-                xx = xx[self.data.X2Y0_idxs]
-            x.append(xx)
 
-        return torch.stack(x, dim=0)
+        self.ret_all = ret_all
 
+    def load_all(self): 
+        '''load all data'''
+        X = [] 
+        Y = [] 
+        Y0 = [] 
+        for cond_idx in range(self.__len__()): 
+            x, y, y0 = self.sample(cond_idx, ret_all_y=True, ret_all_y0=True)
+            X.append(x)
+            Y.append(y)
+            Y0.append(y0)
+
+        return torch.cat(X, dim=0), torch.cat(Y, dim=0), torch.cat(Y0, dim=0), self.cond2drugids[['cell_line', 'pert_id', 'dose_value']]
+        
     def __len__(self): 
-        return self.conditions.shape[0]
+        return self.cond2drugids.shape[0]
     
-    def sample(self, batch_size, partition='train'):
+    def __iter__(self):
 
-        cond_idxs = torch.randint(0, len(self), size=(batch_size,))    
-        x=[]; y=[]; x_cell=[]; x_drug=[]; y0=[]
-        for idx in cond_idxs:
-            xx ,yy, xx_cell, xx_drug, yy0 = self.sample_(idx.item(), batch_size=1, partition=partition)
-            x.append(xx)
-            y.append(yy)
-            x_cell.append(xx_cell)
-            x_drug.append(xx_drug)
-            y0.append(yy0)
-        return torch.cat(x, dim=0), torch.cat(y, dim=0), torch.cat(x_cell, dim=0), torch.cat(x_drug, dim=0), torch.cat(y0, dim=0)
-    
-    def sample_targets(self, idx, batch_size=64, partition='train'): 
-        condition = self.conditions.iloc[idx]
-        perts = self.meta.iloc[condition.id]
+        for cond_idx in range(self.__len__()): 
+            yield self.sample(cond_idx, ret_all_y=self.ret_all, ret_all_y0=self.ret_all)
 
-        if partition == 'train': 
-            perts = perts[lambda x: (~x.test) & (~x.val)]
-        elif partition == 'test':
-            perts = perts[lambda x: x.test]
-        elif partition == 'val':
-            perts = perts[lambda x: x.val]
-        else:
-            raise ValueError('partition must be "train" or "test" or "val"')
+    def sample_targets(self, cond_idx, ret_all=False): 
+        '''this loads the perturbed data for a given condition; will load a randomly sampled subset unless ret_all=True'''
+        condition = self.cond2drugids.iloc[cond_idx]
+
+        cell_line = condition.cell_line 
+        pert_id = condition.pert_id
+        dose_um = condition.dose_value / 1e3 # dose is in nanomolars (conversion expects uM)
+        ids = condition.id
+
+        perts = self.drugmeta.loc[ids]
         
-        if perts.shape[0] > batch_size: 
-            perts = perts.sample(n=batch_size, replace=False, axis=0)
+        if not ret_all and (perts.shape[0] > self.batch_size): 
+            perts = perts.sample(n=self.batch_size, replace=False, axis=0)
 
         # load outputs 
         y = [] 
         for fpath in perts.fpath: 
-            y.append(torch.load(fpath))
+            y.append(torch.load(self.root + '/PROC/' + fpath))
         y = torch.stack(y, dim=0)
 
-        return y 
+        return y, cell_line, pert_id, dose_um
     
-    def sample_controls(self, idx, batch_size=64, partition='train'):
+    def sample_inputs(self, cond_idx, ret_all=False):
+        '''this loads the unperturbed data, however, some inputs are "drug" features and will be zero'''
 
-        condition = self.conditions.iloc[idx]
+        condition = self.cond2drugids.iloc[cond_idx]
         cell_line = condition.cell_line 
-        ctrls = self.meta.iloc[self.controls.loc[cell_line].id]
+        pert_id = condition.pert_id
+        dose_um = condition.dose_value / 1e3 # dose is in nanomolars (conversion expects uM)
 
-        if partition == 'train': 
-            ctrls = ctrls[lambda x: (~x.test) & (~x.val)]
-        elif partition == 'test':
-            ctrls = ctrls[lambda x: x.test]
-        elif partition == 'val':
-            ctrls = ctrls[lambda x: x.val]
-        else:
-            raise ValueError('partition must be "train" or "test" or "val"')
-        
-        if ctrls.shape[0] > batch_size:
-            ctrls = ctrls.sample(n=batch_size, replace=False, axis=0)
+        ids = self.line2ctrlids.loc[cell_line].id
 
-        x = [] 
-        for fpath in ctrls.fpath: 
-            xx = torch.load(fpath)
-            x.append(xx)
+        ctrls = self.ctrlmeta.loc[ids]
+
+        if not ret_all and (ctrls.shape[0] > self.batch_size):
+            ctrls = ctrls.sample(n=self.batch_size, replace=False, axis=0)
+
+        # load inputs
+        x = []
+        for fpath in ctrls.fpath:
+            x.append(torch.load(self.root + '/PROC/' + fpath))
         x = torch.stack(x, dim=0)
 
-        y0 = x[:, self.data.X2Y0_idxs] 
+        # add drug features
+        x = x + self.dose_f_dict[pert_id](dose_um).to_dense().unsqueeze(0).expand(x.shape[0], -1)
+        
+        y0 = x[:, self.data.X2Y0_idxs].detach()
 
-        return y0
+        return x, y0, cell_line, pert_id, dose_um
 
-
-
-    def sample_(self, idx, batch_size=64, partition='train', ret_all_y=False, ret_all_y0=False): 
-        # TODO: Test that this is selecting appropriately 
-        condition = self.conditions.iloc[idx]
-        cell_line = condition.cell_line 
-        pert_id = condition.drug
-        dose = condition.dose / 1e3 # dose is in nanomolars (conversion expects uM)
-        perts = self.meta.iloc[condition.id]
-        ctrls = self.meta.iloc[self.controls.loc[cell_line].id]
-
-        if partition == 'train': 
-            perts = perts[lambda x: (~x.test) & (~x.val)]
-            ctrls = ctrls[lambda x: (~x.test) & (~x.val)]
-        elif partition == 'test':
-            perts = perts[lambda x: x.test]
-            ctrls = ctrls[lambda x: x.test]
-        elif partition == 'val':
-            perts = perts[lambda x: x.val]
-            ctrls = ctrls[lambda x: x.val]
-        else:
-            raise ValueError('partition must be "train" or "test" or "val"')
-
-        if batch_size is not None: # otherwise return all
-            if perts.shape[0] < batch_size: 
-                batch_size = perts.shape[0]
+    def sample(self, cond_idx, ret_all_y=False, ret_all_y0=False): 
             
-            if not ret_all_y: perts = perts.sample(n=batch_size, replace=False, axis=0)
-
-            if not ret_all_y0: 
-                if ctrls.shape[0] < batch_size:
-                    ctrls = ctrls.sample(n=batch_size, replace=True, axis=0) # this is unlikely to occur
-                else:
-                    ctrls = ctrls.sample(n=batch_size, replace=False, axis=0)
-
-        # load inputs 
-        x = [] 
-        for fpath in ctrls.fpath: 
-            xx = torch.load(fpath)
-            xx = xx + self.dose_f_dict[pert_id](dose)
-            x.append(xx)
-        x = torch.stack(x, dim=0)
-
-        x_drug = x[:, self.drug_idxs]
-        x_cell = self.cell2onehot[cell_line].unsqueeze(0).expand(x.size(0), -1)
-
-        # load outputs 
-        y = [] 
-        for fpath in perts.fpath: 
-            y.append(torch.load(fpath))
-        y = torch.stack(y, dim=0)
-
-        y0 = x[:, self.data.X2Y0_idxs]
-        # X,y, x_cell, x_drug, y0
-        return x ,y, x_cell, x_drug, y0
+        y, cell_line1, pert_id1, dose_um1 = self.sample_targets(cond_idx, ret_all=ret_all_y)
+        x, y0, cell_line2, pert_id2, dose_um2 = self.sample_inputs(cond_idx, ret_all=ret_all_y0)
+        
+        assert cell_line1 == cell_line2, 'cell line mismatch'
+        assert pert_id1 == pert_id2, 'pert id mismatch'
+        assert dose_um1 == dose_um2, 'dose value mismatch'
+        
+        # x = (y0 + drug_encoded)
+        # y = perturbed expression 
+        # y0 = unperturbed expression
+        return x, y, y0
         
 
 

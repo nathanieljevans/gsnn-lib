@@ -1,6 +1,6 @@
 #!/bin/zsh
 # example use:
-# ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N $RAND
+# ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N $RAND $SS
 # ./batched_gsnn.sh ../output/exp1-1/proc/ ../output/gpu_test/ 10 00:10:00 8G 10 --randomize
 
 ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
@@ -10,16 +10,33 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 ###            HYPER-PARAMETER SEARCH SPACE         ###
 #######################################################
 #######################################################
-lr_list=("5e-3" "1e-3" "5e-4")
-do_list=("0" "0.1")
-c_list=("4" "5" "6" "7" "8" "9" "10")
-lay_list=("10" "12" "15")
-ase_list=("" "--add_function_self_edges")
-share_list=("" "--share_layers")
-norm_list=("none" "batch" "layer" "softmax")
-bias_list=("" "--no_bias")
-wd_list=("0" "1e-6" "1e-8")
-batch_list=("64" "96" "128")
+SS=$8
+if [[ "$SS" == "large" ]]
+then 
+        lr_list=("1e-2" "1e-3" "5e-4")
+        do_list=("0" "0.1")
+        c_list=("4" "6" "8" "10" "12")
+        lay_list=("10" "12" "14")
+        ase_list=("" "--add_function_self_edges")
+        share_list=("" "--share_layers")
+        norm_list=("none" "batch" "layer" "softmax")
+        bias_list=("" "--no_bias")
+        wd_list=("0" "1e-6" "1e-8")
+        batch_list=("64" "96" "128")
+        optim_list=("adam" "adan")
+else
+        lr_list=("1e-2" "1e-3")
+        do_list=("0")
+        c_list=("8" "10" "12")
+        lay_list=("10" "12" "14")
+        ase_list=("--add_function_self_edges")
+        share_list=("")
+        norm_list=("layer" "softmax")
+        bias_list=("")
+        wd_list=("0" "1e-8")
+        batch_list=("64")
+        optim_list=("adan")
+fi
 #######################################################
 #######################################################
 #######################################################
@@ -70,10 +87,11 @@ for ((i=1; i<=N; i++)); do
         bias=$(echo "${bias_list[@]}" | tr ' ' '\n' | shuf -n 1)
         wd=$(echo "${wd_list[@]}" | tr ' ' '\n' | shuf -n 1)
         batch=$(echo "${batch_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        optimm=$(echo "${optim_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch)"
+        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch, optim=$optimm)"
 
         # SUBMIT SBATCH JOB 
 
@@ -103,6 +121,7 @@ python train_gsnn_lincs.py --data $PROC \
                      --layers $lay \
                      --norm $norm \
                      --wd $wd \
+                     --optim $optimm \
                      $share $ase $RAND $bias
 
 EOF

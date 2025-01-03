@@ -11,14 +11,29 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 ###            HYPER-PARAMETER SEARCH SPACE         ###
 #######################################################
 #######################################################
-lr_list=("1e-2" "1e-3" "1e-4")
-do_list=("0" "0.1" "0.25")
-c_list=("64" "124" "256")
-lay_list=("1" "2" "4")
-arch_list=('nn' 'ae')
-batch_list=("256" "512" "1024")
-wd_list=("0" "1e-6" "1e-8")
-ldim_list=("32" "64" "128")
+SS=$8
+if [[ "$SS" == "large" ]]
+then 
+        lr_list=("1e-2" "1e-3" "1e-4")
+        do_list=("0" "0.1" "0.25")
+        c_list=("64" "124" "256")
+        lay_list=("1" "2" "4")
+        arch_list=('nn' 'ae')
+        batch_list=("256" "512" "1024")
+        wd_list=("0" "1e-6" "1e-8")
+        ldim_list=("32" "64" "128" "256")
+        optim_list=("adam" "adan")
+else
+        lr_list=("1e-3" "1e-4")
+        do_list=("0" "0.25")
+        c_list=("124" "256")
+        lay_list=("1" "2")
+        arch_list=('nn' 'ae')
+        batch_list=("256" "512" "1024")
+        wd_list=("0" "1e-8")
+        ldim_list=("64" "128" "256")
+        optim_list=("adan")
+fi
 #######################################################
 #######################################################
 #######################################################
@@ -63,10 +78,11 @@ for ((i=1; i<=N; i++)); do
         arch=$(echo "${arch_list[@]}" | tr ' ' '\n' | shuf -n 1)
         batch=$(echo "${batch_list[@]}" | tr ' ' '\n' | shuf -n 1)
         ldim=$(echo "${ldim_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        optimm=$(echo "${optim_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
         jobid=$((jobid+1))
 
-        echo "submitting job: NN (lr=$lr, do=$do, c=$c, lay=$lay, arch=$arch, batch=$batch, ldim=$ldim)"
+        echo "submitting job: NN (lr=$lr, do=$do, c=$c, lay=$lay, arch=$arch, batch=$batch, ldim=$ldim, optim=$optimm)"
 
         # SUBMIT SBATCH JOB 
 
@@ -94,6 +110,7 @@ python train_nn_lincs.py --data $PROC \
                   --epochs $EPOCHS \
                   --batch $batch \
                   --latent_dim $ldim \
+                  --optim $optimm \
                   --arch $arch
 
 EOF

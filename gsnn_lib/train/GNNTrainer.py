@@ -32,7 +32,7 @@ class GNNTrainer(Trainer):
 
         return yhat, y
 
-    def _compute_metrics(self, y, yhat, loss):
+    def _compute_metrics(self, y, yhat, loss, eval=False):
         r2 = r2_score(y, yhat, multioutput='variance_weighted')
         r_flat = np.corrcoef(y.ravel(), yhat.ravel())[0,1]
 
