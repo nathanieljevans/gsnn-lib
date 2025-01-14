@@ -31,7 +31,7 @@ else
         lay_list=("10" "12" "14")
         ase_list=("--add_function_self_edges")
         share_list=("")
-        norm_list=("layer" "softmax")
+        norm_list=("layer")
         bias_list=("")
         wd_list=("0" "1e-8")
         batch_list=("64")

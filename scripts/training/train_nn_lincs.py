@@ -30,7 +30,7 @@ def get_args():
                         help="path to data directory")
     parser.add_argument("--fold_dir", type=str, default='/partitions/',
                         help="relative path (from data) to partition splits information (dict .pt file)")
-    parser.add_argument("--out", type=str, default='../../NN/output/',
+    parser.add_argument("--out", type=str, default='../../output/NN/',
                         help="path to output directory")
 
     parser.add_argument("--arch", type=str, default='nn',
@@ -42,8 +42,6 @@ def get_args():
                         help="number of workers for dataloaders")
     parser.add_argument("--epochs", type=int, default=100,
                         help="number of training epochs")
-    parser.add_argument("--randomize", action='store_true',
-                        help="whether to randomize the structural graph")
     parser.add_argument("--ignore_cuda", action='store_true',
                         help="whether to ignore available cuda GPU")
 
@@ -74,7 +72,7 @@ def get_args():
 
     parser.add_argument("--metric", type=str, default='r2',
                         help="metric to use for early stopping and best model [r2, mse]")
-    parser.add_argument("--patience", type=int, default=5,
+    parser.add_argument("--patience", type=int, default=25,
                         help="epoch patience for early stopping")
     parser.add_argument("--min_delta", type=float, default=0.001,
                         help="minimum improvement for early stopping")
@@ -111,8 +109,9 @@ def train_fold(args, fold, out_dir, data, condinfo, device):
             out_channels=len(data.node_names_dict['output']),
             layers=args.layers,
             dropout=args.dropout,
-            nonlin=utils.get_activation(args.nonlin)
+            nonlin=utils.get_activation(args.nonlin),
         ).to(device)
+
     elif args.arch == 'ae':
         model = AE(
             data=data,
@@ -212,10 +211,6 @@ if __name__ == '__main__':
 
     condinfo = pd.read_csv(f'{args.data}/conditions_meta.csv', sep=',')
     data = torch.load(f'{args.data}/data.pt', weights_only=False)
-
-    # optionally randomize graph
-    if args.randomize:
-        data.edge_index = utils.randomize(data)
 
     # In the GSNN script, we load multiple folds and run train_fold on each.
     # For the NN script, let's emulate that behavior.

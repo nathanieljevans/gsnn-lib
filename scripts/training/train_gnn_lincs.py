@@ -67,7 +67,7 @@ def get_args():
                         help="non-linearity function")
     parser.add_argument("--metric", type=str, default='r2',
                         help="metric for early stopping [r2, mse]")
-    parser.add_argument("--patience", type=int, default=5,
+    parser.add_argument("--patience", type=int, default=25,
                         help="early stopping patience")
     parser.add_argument("--min_delta", type=float, default=0.001,
                         help="minimum improvement for early stopping")

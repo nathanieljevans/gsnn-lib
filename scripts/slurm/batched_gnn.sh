@@ -13,7 +13,7 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 SS=$8
 if [[ "$SS" == "large" ]]
 then 
-        lr_list=("1e-2" "1e-3" "1e-4")
+        lr_list=("1e-3" "1e-4")
         do_list=("0" "0.1")
         c_list=("16" "32" "64")
         lay_list=("3" "5" "10")

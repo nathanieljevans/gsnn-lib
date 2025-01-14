@@ -16,7 +16,7 @@ NAME=exp2
 DATA=/home/exacloud/gscratch/NGSdev/evans/data/
 OUT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
-EPOCHS=100
+EPOCHS=250
 
 # Graph construction details
 FEATURE_SPACE=("landmark")		        # options: landmark, best-inferred, inferred [e.g., "landmark best-inferred"]

@@ -81,7 +81,7 @@ def get_args():
                         help="use torch.compile on the model")
     parser.add_argument("--metric", type=str, default='r2',
                         help="metric to use for early stopping and best model [r2, mse]")
-    parser.add_argument("--patience", type=int, default=5,
+    parser.add_argument("--patience", type=int, default=10,
                         help="epoch patience for early stopping")
     parser.add_argument("--min_delta", type=float, default=0.001,
                         help="minimum improvement for early stopping")

@@ -26,9 +26,10 @@ from geomloss import SamplesLoss
 from gsnn.optim.EarlyStopper import EarlyStopper
 from gsnn_lib.train.EnergyDistanceLoss import EnergyDistanceLoss
 
-
 import warnings
 warnings.filterwarnings("ignore")
+
+# TODO: EVAL delta r2 
 
 def get_args(): 
     parser = argparse.ArgumentParser()
@@ -98,6 +99,9 @@ def get_args():
     parser.add_argument("--loss", type=str, default='sinkhorn',
                         help="loss function to use [sinkhorn, energy]")
     
+    parser.add_argument("--optim", type=str, default='adam',
+                        help="optimization algorithm to use [adam, adan, rmsprop, sgd]")
+    
     args = parser.parse_args()
 
     return args
@@ -138,19 +142,23 @@ if __name__ == '__main__':
         train_loader = scSampler(root=args.data, 
                                 pert_ids=split_dict['pert']['train'], 
                                 ctrl_ids=split_dict['ctrl']['train'], 
-                                batch_size=args.batch_size)
+                                batch_size=args.batch_size,
+                                ret_all_targets=True,
+                                shuffle=True)
         
         val_loader = scSampler(root=args.data,
                                 pert_ids=split_dict['pert']['val'],
                                 ctrl_ids=split_dict['ctrl']['val'],
                                 batch_size=args.batch_size,
-                                ret_all=False)
+                                ret_all_targets=True,
+                                shuffle=False)
         
         test_loader = scSampler(root=args.data,
                                 pert_ids=split_dict['pert']['test'],
                                 ctrl_ids=split_dict['ctrl']['test'],
                                 batch_size=args.batch_size,
-                                ret_all=False)
+                                ret_all_targets=True,
+                                shuffle=False)
 
         # Build model
         model = GSNN(
@@ -169,12 +177,14 @@ if __name__ == '__main__':
         ).to(device)
 
         # Define optimizer and criterion
-        optim = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
+        optim = utils.get_optim(args.optim)(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
         if args.loss == 'sinkhorn':
             crit = SamplesLoss('sinkhorn', p=args.p, blur=args.blur, reach=args.reach, debias=args.debias, scaling=args.scaling)
         elif args.loss == 'energy':
             crit = EnergyDistanceLoss()
+        else:
+            raise ValueError(f'Unrecognized loss function: {args.loss}. Must be one of [sinkhorn, energy]')
 
         # Optionally define a scheduler, early_stopper, or logger
         scheduler = utils.get_scheduler(optim, args, train_loader)

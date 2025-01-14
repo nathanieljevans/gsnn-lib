@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import r2_score
-from .Trainer import Trainer  # Adjust the path as needed
+from .Trainer import Trainer
 
 class NNTrainer(Trainer):
     """
@@ -20,6 +20,7 @@ class NNTrainer(Trainer):
         y = y.to(self.device)
 
         yhat = self.model(x)
+
         return yhat, y
 
     def _compute_metrics(self, y, yhat, loss, eval=False):

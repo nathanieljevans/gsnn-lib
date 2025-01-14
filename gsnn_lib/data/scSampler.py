@@ -7,7 +7,7 @@ import numpy as np
 class scSampler: 
     '''Sample Px, Py from unperturbed and pertrubed single cell omics'''
 
-    def __init__(self, root, pert_ids, ctrl_ids, batch_size, ret_all=False):
+    def __init__(self, root, pert_ids, ctrl_ids, batch_size, shuffle=True, ret_all_targets=True):
         # TODO: how to handle partition splits... 
 
         self.root = root 
@@ -28,7 +28,8 @@ class scSampler:
         self.drug_idxs = torch.tensor([i for i,n in enumerate(self.data['node_names_dict']['input']) if 'DRUG_' in n], dtype=torch.long)
         self.n_drugs = len(self.drug_idxs)
 
-        self.ret_all = ret_all
+        self.ret_all_targets = ret_all_targets
+        self.shuffle = shuffle
 
     def load_all(self): 
         '''load all data'''
@@ -48,8 +49,15 @@ class scSampler:
     
     def __iter__(self):
 
-        for cond_idx in range(self.__len__()): 
-            yield self.sample(cond_idx, ret_all_y=self.ret_all, ret_all_y0=self.ret_all)
+        # TODO: fix ret_all to be a parameter 
+        # TODO: add randomization 
+        if self.shuffle: 
+            conds = np.random.permutation(self.__len__())
+        else: 
+            conds = range(self.__len__())
+            
+        for cond_idx in conds: 
+            yield self.sample(cond_idx, ret_all_y=self.ret_all_targets, ret_all_y0=False)
 
     def sample_targets(self, cond_idx, ret_all=False): 
         '''this loads the perturbed data for a given condition; will load a randomly sampled subset unless ret_all=True'''

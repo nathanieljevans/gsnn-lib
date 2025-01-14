@@ -31,7 +31,7 @@ from gsnn_lib.proc import dti
 def get_args(): 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--data",               type=str,               default='../../data/',                      help="path to data directory")
+    parser.add_argument("--data",               type=str,               default='../../../data/',                      help="path to data directory")
     parser.add_argument("--out",                type=str,               default='../../proc/lincs/',                help="path to data directory")
     parser.add_argument("--extdata",            type=str,               default='../../extdata/',                   help="path to data directory")
     parser.add_argument('--feature_space',      nargs='+',              default=['landmark'],                       help='lincs feature space [landmark, best-inferred, inferred]')
@@ -47,7 +47,7 @@ def get_args():
     parser.add_argument("--undirected",         action='store_true',    default=False,                              help="make all function edges undirected")
     parser.add_argument("--N_false_dti_edges",  type=int,               default=0,                                  help="number of false drug-> function edges to add to the graph")
     parser.add_argument('--dose_epsilon',       type=float,             default=1e-6,                               help='scaling parameter for dose transformation')
-    parser.add_argument('--norm',               type=str,               default='none',                           help='normalization method for omics [zscore, minmax, none]')
+    parser.add_argument('--norm',               type=str,               default='zscore',                           help='normalization method for omics [zscore, minmax, none]')
 
     args = parser.parse_args() 
 
@@ -445,16 +445,14 @@ if __name__ == '__main__':
     df.to_csv(args.out + '/conditions_meta.csv', index=False)
 
     # Perform normalization on the averaged dataset
-    if args.norm == 'scale':
-        std = dataset.std(axis=0)
-        transform = lambda x: x / (std + 1e-8)
-        transform_params = {'std':std, 'method':'scale'}
-    elif args.norm == 'zscore':
-        mu = dataset.mean(axis=0)
-        std = dataset.std(axis=0)
+    if args.norm == 'zscore':
+        # NOTE: this normalizes across all LINCS genes (not within gene)
+        mu = dataset.mean()
+        std = dataset.std()
         transform = lambda x: (x - mu) / (std + 1e-8)
         transform_params = {'mu':mu, 'std':std, 'method':'zscore'}
     elif args.norm == 'minmax':
+        # NODE: this normalizes within gene 
         min_ = dataset.min(axis=0)
         max_ = dataset.max(axis=0)
         transform = lambda x: (x - min_) / (max_ - min_ + 1e-8)
@@ -478,47 +476,4 @@ if __name__ == '__main__':
     torch.save(data, args.out + '/data.pt')
 
     with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
-
-'''
-    if args.norm == 'scale':
-        # no shift, just normalize variance 
-        std = dataset.std(axis=0)
-        transform = lambda x: x / (std + 1e-8)
-        inv_transform = lambda x: x * std
-        transform_params = {'std':std, 'method':'scale'}
-    elif args.norm == 'zscore':
-        mu = dataset.mean(axis=0)
-        std = dataset.std(axis=0)
-        transform = lambda x: (x - mu) / (std + 1e-8)
-        inv_transform = lambda x: x * std + mu
-        transform_params = {'mu':mu, 'std':std, 'method':'zscore'}
-    elif args.norm == 'minmax':
-        min_ = dataset.min(axis=0)
-        max_ = dataset.max(axis=0)
-        transform = lambda x: (x - min_) / (max_ - min_ + 1e-8)
-        inv_transform = lambda x: x * (max_ - min_) + min_
-        transform_params = {'min':min_, 'max':max_, 'method':'minmax'}
-    elif args.norm == 'none':
-        transform = lambda x: x
-        transform_params = {'method':'none'}
-    else:
-        raise ValueError('unrecognized normalization method')
-    
-    torch.save(transform_params, args.out + '/obs_transform_params.pt')
-
-    print('saving obs to disk...')
-    os.makedirs(args.out + '/obs/', exist_ok=True)
-    for i, (sig_id, y) in enumerate(zip(sig_ids, dataset)): 
-        print(f'progress: {i}/{len(sig_ids)}', end='\r')
-        y = transform(y)
-        y = torch.tensor(y, dtype=torch.float32)
-        torch.save(y, args.out + '/obs/' + sig_id + '.pt') 
-    print('# LINCS observations:', i+1)
-    
-    print('saving data object...')
-    torch.save(data, args.out + '/data.pt')
-
-    with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
-'''
-
 

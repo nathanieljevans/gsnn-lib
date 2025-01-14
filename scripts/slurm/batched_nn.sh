@@ -14,24 +14,24 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 SS=$8
 if [[ "$SS" == "large" ]]
 then 
-        lr_list=("1e-2" "1e-3" "1e-4")
+        lr_list=("1e-3" "1e-4")
         do_list=("0" "0.1" "0.25")
-        c_list=("64" "124" "256")
-        lay_list=("1" "2" "4")
+        c_list=("256" "512" "1024")
+        lay_list=("1" "2" "3")
         arch_list=('nn' 'ae')
-        batch_list=("256" "512" "1024")
+        batch_list=("124" "512" "1024")
         wd_list=("0" "1e-6" "1e-8")
         ldim_list=("32" "64" "128" "256")
         optim_list=("adam" "adan")
 else
         lr_list=("1e-3" "1e-4")
         do_list=("0" "0.25")
-        c_list=("124" "256")
-        lay_list=("1" "2")
+        c_list=("256" "512")
+        lay_list=("2")
         arch_list=('nn' 'ae')
-        batch_list=("256" "512" "1024")
+        batch_list=("256" "1024")
         wd_list=("0" "1e-8")
-        ldim_list=("64" "128" "256")
+        ldim_list=("128" "256")
         optim_list=("adan")
 fi
 #######################################################
