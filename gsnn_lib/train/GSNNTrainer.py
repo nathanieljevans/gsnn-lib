@@ -30,9 +30,9 @@ class GSNNTrainer(Trainer):
         
         # Forward pass
         yhat = self.model(x)
-        return yhat, y
+        return yhat, y, {}
 
-    def _compute_metrics(self, y, yhat, loss, eval=False):
+    def _compute_metrics(self, y, yhat, loss, kwargs, eval=False):
         """
         Compute metrics given numpy arrays of ground truths and predictions.
         

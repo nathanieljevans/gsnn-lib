@@ -31,7 +31,7 @@ def get_args():
                         help="path to data directory")
     parser.add_argument("--fold_dir", type=str, default='/partitions/',
                         help="relative path (from data) to partition splits information (dict .pt file)")
-    parser.add_argument("--out", type=str, default='../../GSNN/output/',
+    parser.add_argument("--out", type=str, default='../../output/lincs/GSNN/',
                         help="path to output directory")
     parser.add_argument("--batch", type=int, default=25,
                         help="training batch size")

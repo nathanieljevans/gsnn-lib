@@ -21,9 +21,9 @@ class NNTrainer(Trainer):
 
         yhat = self.model(x)
 
-        return yhat, y
+        return yhat, y, {}
 
-    def _compute_metrics(self, y, yhat, loss, eval=False):
+    def _compute_metrics(self, y, yhat, loss, kwargs, eval=False):
         """
         Compute metrics given numpy arrays of ground truths (y) and predictions (yhat).
         Returns a dict of metrics: loss, r2, r_flat.

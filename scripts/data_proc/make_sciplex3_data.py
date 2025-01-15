@@ -38,13 +38,13 @@ def get_args():
     parser.add_argument("--extdata",                type=str,               default='../../extdata/',                       
                         help="path to data directory")
 
-    parser.add_argument('--dti_sources',            nargs='+',              default=['clue', 'targetome', 'stitch'],        
+    parser.add_argument('--dti_sources',            nargs='+',              default=['clue', 'targetome'],        
                         help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
 
     parser.add_argument("--filter_depth",           type=int,               default=10,                                     
                         help="the depth to search for upstream drugs and downstream lincs in the node filter process")
 
-    parser.add_argument("--n_genes",                type=int,               default=2000,                                   
+    parser.add_argument("--n_genes",                type=int,               default=100,                                   
                         help="selection of the top N high-variance RNA genes")
 
     parser.add_argument("--undirected",             action='store_true',    default=False,                                  
@@ -52,12 +52,6 @@ def get_args():
 
     parser.add_argument("--seed",                   type=int,               default=0,                                      
                         help="randomization seed")
-
-    parser.add_argument('--val_prop',               type=float,             default=0.1,                                    
-                        help='proportion of cells to assign to validation partition')
-
-    parser.add_argument('--test_prop',              type=float,             default=0.15,                                   
-                        help='proportion of cells to assign to test partition')
 
     parser.add_argument('--dose_eps_',              type=float,             default=1e-6,                                   
                         help='dose scaling epsilon [recommended: 1e-6]')
@@ -81,6 +75,7 @@ if __name__ == '__main__':
     args = get_args()
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    print(args)
     print()
 
     if not os.path.exists(args.out): 
@@ -143,9 +138,9 @@ if __name__ == '__main__':
     # add cell lines 
     args.cell_lines = drug_adata.obs.cell_line.unique()
     
-    ######################################3
+    ######################################
     ## START filter 
-    ######################################3
+    ######################################
 
     # filter nodes that are not downstream of a drug AND do not have downstream LINCS genes 
     # also filter targets that are no longer relevant 
@@ -314,43 +309,3 @@ if __name__ == '__main__':
     ctrl_adata.obs[['pert_id', 'dose_value', 'cell_line']].to_csv(args.out + '/ctrl_meta.csv', index=False)
     drug_adata.obs[['pert_id', 'dose_value', 'cell_line']].to_csv(args.out + '/drug_meta.csv', index=False)
     
-    '''
-    ##################################################################################################################
-    ##################################       CREATE DATA PARTITIONS       ############################################
-    ##################################################################################################################
-
-
-    # create data partitions (train, valid, test)
-    print('creating data partitions...')
-    n = len(drug_adata.obs)
-    idxs = np.arange(n)
-    np.random.shuffle(idxs)
-    n_val = int(args.val_prop * n)
-    n_test = int(args.test_prop * n)
-    n_train = n - n_val - n_test
-    idxs_train = idxs[:n_train]
-    idxs_val = idxs[n_train:(n_train+n_val)]
-    idxs_test = idxs[(n_train+n_val):]
-
-    # save adata
-    drug_adata.obs = drug_adata.obs.assign(train = False, test = False, val = False)
-    drug_adata.obs.loc[idxs_train, 'train'] = True
-    drug_adata.obs.loc[idxs_val, 'val'] = True
-    drug_adata.obs.loc[idxs_test, 'test'] = True
-    drug_adata.write_h5ad(args.out + '/drug_adata.h5')
-
-    # BUG: this doesn't work for some reason - pickle instead
-    # ctrl_adata.write_h5ad(args.out + '/ctrl_adata.h5')
-
-    # save obs as meta 
-    drug_adata.obs.to_csv(args.out + '/conditions.csv', index=False)
-
-
-    torch.save(torch.tensor(idxs_train, dtype=torch.long), args.out + '/train_idxs.pt')
-    torch.save(torch.tensor(idxs_val, dtype=torch.long), args.out + '/val_idxs.pt')
-    torch.save(torch.tensor(idxs_test, dtype=torch.long), args.out + '/test_idxs.pt')
-
-    with open(f'{args.out}/make_data_completed_successfully.flag', 'w') as f: f.write(':)')
-
-
-'''

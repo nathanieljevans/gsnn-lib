@@ -2,7 +2,7 @@
 
 ########## DESCRIPTION #########
 
-# A relatively small experiment, focusing on high-quality known DTIs from targetome, using only gene expression dat and requiring 100 observations per druig for inclusion.
+# Ablation study for the GSNN model on LINCS data.
 
 ########## PARAMS #########
 
@@ -15,16 +15,16 @@ NAME=exp1
 DATA=/home/exacloud/gscratch/NGSdev/evans/data/
 OUT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
-EPOCHS=250
+EPOCHS=150
 
 # Graph construction details
 FEATURE_SPACE=("landmark")		        # options: landmark, best-inferred, inferred [e.g., "landmark best-inferred"]
-DTI_SOURCES=("targetome") 	            # options: clue, targetome, stitch [e.g., "clue targetome stitch"]
+DTI_SOURCES=("targetome" "clue") 	    # options: clue, targetome, stitch [e.g., "clue targetome stitch"]
 DRUGS='none'					        # broad ids (space separated); "none" will include all valid drugs
 LINCS='none'					        # uniprot lincs outputs (space separated); "none" will include all valid lincs
 CELL_LINES='none'					    # cell lines (LINCS `cell_iname`) (space separated); "none" will include all valid lines
-OMICS=('expr' 'mut' 'cnv' 'methyl')		# which omics to include
-OMICS_Q_FILTER=0.25				        # omics with the std in this quantile will not be included in the graph (remove low variance features)
+OMICS=('expr')		                    # which omics to include
+OMICS_Q_FILTER=0.1				        # omics with the std in this quantile will not be included in the graph (remove low variance features)
 TIME=24							        # LINCS measurement time (hours); [recommend: 24; options: 6, 24, 48, 72]
 FILTER_DEPTH=10					        # Primary criteria for molecular entity inclusion. 
 MIN_OBS_PER_DRUG=50			            # number of observations per drug for drug to be included in observations and graph
@@ -36,17 +36,24 @@ VAL_PROP=0.1					        # proportion of data to hold out for validation
 N_FOLDS=5						        # number of outer folds to create
 
 # Hyper-parameter search budget 
-N=100 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
+N=400 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
 SEARCHSPACE="large"                     # options: 'large', 'small' (number of hyper-parameters to test)
 
 # SLURM settings (node request parameters)
-GSNN_TIME=12:00:00
+GSNN_TIME=24:00:00
 GSNN_MEM=32G
 
-NN_TIME=06:00:00
-NN_MEM=20G
+NN_TIME=00:00:00
+NN_MEM=0G
 
-GNN_TIME=12:00:00
-GNN_MEM=32G
+GNN_TIME=00:00:00
+GNN_MEM=0G
+
+RUN_GSNN=1
+RUN_GSNN_RAND=0
+RUN_NN=0
+RUN_GNN=0
 
 ###########################
+
+

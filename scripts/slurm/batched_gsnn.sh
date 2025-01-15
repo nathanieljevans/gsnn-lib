@@ -13,17 +13,19 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 SS=$8
 if [[ "$SS" == "large" ]]
 then 
-        lr_list=("1e-2" "1e-3" "5e-4")
-        do_list=("0" "0.1")
-        c_list=("4" "6" "8" "10" "12")
-        lay_list=("10" "12" "14")
+        lr_list=("1e-2" "1e-3" "1e-4")
+        do_list=("0" "0.1" "0.25")
+        c_list=("8" "10" "12")
+        lay_list=("10" "12" "14" "16" "18" "20")
         ase_list=("" "--add_function_self_edges")
         share_list=("" "--share_layers")
         norm_list=("none" "batch" "layer" "softmax")
         bias_list=("" "--no_bias")
         wd_list=("0" "1e-6" "1e-8")
-        batch_list=("64" "96" "128")
+        batch_list=("64" "96")
         optim_list=("adam" "adan")
+        init_list=("kaiming" "xavier" "lecun")
+        nonlin_list=("relu" "elu" "gelu")
 else
         lr_list=("1e-2" "1e-3")
         do_list=("0")
@@ -36,6 +38,8 @@ else
         wd_list=("0" "1e-8")
         batch_list=("64")
         optim_list=("adan")
+        init_list=("kaiming")
+        nonlin_list=("elu")
 fi
 #######################################################
 #######################################################
@@ -88,10 +92,12 @@ for ((i=1; i<=N; i++)); do
         wd=$(echo "${wd_list[@]}" | tr ' ' '\n' | shuf -n 1)
         batch=$(echo "${batch_list[@]}" | tr ' ' '\n' | shuf -n 1)
         optimm=$(echo "${optim_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        init=$(echo "${init_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        nonlin=$(echo "${nonlin_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch, optim=$optimm)"
+        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch, optim=$optimm, init=$init, nonlin=$nonlin)"
 
         # SUBMIT SBATCH JOB 
 
@@ -122,6 +128,8 @@ python train_gsnn_lincs.py --data $PROC \
                      --norm $norm \
                      --wd $wd \
                      --optim $optimm \
+                     --init $init \
+                     --nonlin $nonlin \
                      $share $ase $RAND $bias
 
 EOF

@@ -52,13 +52,13 @@ class Trainer(ABC):
         self.model.train()
         self.optimizer.zero_grad()
         
-        yhat, y = self._run_batch(batch)
+        yhat, y, kwargs = self._run_batch(batch)
         loss = self.criterion(yhat, y)
         
         loss.backward()
         self.optimizer.step()
         
-        return loss.item(), yhat, y
+        return loss.item(), yhat, y, kwargs
 
     def _run_epoch(self, dataloader, training=True):
         """
@@ -78,13 +78,13 @@ class Trainer(ABC):
         with torch.set_grad_enabled(training):
             for i,batch in enumerate(dataloader):
                 if training:
-                    loss, yhat, y = self._step(batch)
+                    loss, yhat, y, kwargs = self._step(batch)
                 else:
                     # Validation/Test step without backprop
-                    yhat, y = self._run_batch(batch)
+                    yhat, y, kwargs = self._run_batch(batch)
                     loss = self.criterion(yhat, y).item()
                 
-                batch_metrics = self._compute_metrics(y.detach().cpu().numpy(), yhat.detach().cpu().numpy(), loss)
+                batch_metrics = self._compute_metrics(y.detach().cpu().numpy(), yhat.detach().cpu().numpy(), loss, kwargs)
                     
                 epoch_loss.append(loss)
                 all_y.append(y.detach().cpu().numpy())
@@ -100,11 +100,11 @@ class Trainer(ABC):
         
         # Compute metrics
         # Note `eval=True` computes (potentially) different metrics than eval=False 
-        metrics = self._compute_metrics(all_y, all_yhat, np.mean(epoch_loss), eval=True)
+        metrics = self._compute_metrics(all_y, all_yhat, np.mean(epoch_loss), {}, eval=True)
         return metrics, all_y, all_yhat
 
     @abstractmethod
-    def _compute_metrics(self, y, yhat, loss, eval=False):
+    def _compute_metrics(self, y, yhat, loss, kwargs, eval=False):
         """
         Compute and return metrics given predictions and targets.
         Derived classes can implement custom metrics if needed.
