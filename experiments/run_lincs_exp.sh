@@ -43,18 +43,18 @@ python $PROC_DIR/create_lincs_splits.py --data $DATA \
 
 # perform MC hyper-parameter search
 
-if [ "$RUN_GSNN" -eq 1]; then 
+if [ "$RUN_GSNN" -eq 1 ]; then 
 	$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N "" $SEARCHSPACE
 fi
 
-if [ "$RUN_GSNN_RAND" -eq 1]; then 
+if [ "$RUN_GSNN_RAND" -eq 1 ]; then 
 	$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N --randomize $SEARCHSPACE
 fi 
 
-if [ "$RUN_NN" -eq 1]; then 
+if [ "$RUN_NN" -eq 1 ]; then 
 	$SCRIPT_DIR/batched_nn.sh $PROC $OUT $EPOCHS $NN_TIME $NN_MEM $N $SEARCHSPACE
 fi 
 
-if [ "$RUN_GNN" -eq 1]; then 
+if [ "$RUN_GNN" -eq 1 ]; then 
 	$SCRIPT_DIR/batched_gnn.sh $PROC $OUT $EPOCHS $GNN_TIME $GNN_MEM $N $SEARCHSPACE
 fi

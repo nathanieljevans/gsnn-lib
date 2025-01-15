@@ -36,7 +36,7 @@ VAL_PROP=0.1					        # proportion of data to hold out for validation
 N_FOLDS=5						        # number of outer folds to create
 
 # Hyper-parameter search budget 
-N=400 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
+N=1 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
 SEARCHSPACE="large"                     # options: 'large', 'small' (number of hyper-parameters to test)
 
 # SLURM settings (node request parameters)
