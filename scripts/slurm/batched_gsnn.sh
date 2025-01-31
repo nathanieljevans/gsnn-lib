@@ -12,7 +12,7 @@ ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
 #######################################################
 SS=$8
 if [[ "$SS" == "large" ]]
-# 2x3x2x2x1x1x6x2x1x2x2x3x2x1
+#2x3x2x2x6x2x2x2x3x2=6912
 then 
         lr_list=("1e-2" "1e-3")
         do_list=("0" "0.25" "0.5")
@@ -30,6 +30,7 @@ then
         checkpoint_list=("--checkpoint")
 
 elif [[ "$SS" == "small" ]]
+#2x3x3x2x2=72
 then
         lr_list=("1e-2" "1e-3")
         do_list=("0")
@@ -47,7 +48,7 @@ then
         checkpoint_list=("--checkpoint")
 
 elif [[ "$SS" == "norm_ablation" ]]
-# 2x3x6x3x2=216
+# 2x2x3x6x4=288
 then
         lr_list=("1e-2" "1e-3")
         do_list=("0" "0.1")
@@ -58,7 +59,7 @@ then
         norm_list=("none" "batch" "layer" "softmax" "groupbatch" "edgebatch")
         bias_list=("")
         wd_list=("0")
-        batch_list=("124" "256" "512")
+        batch_list=("124" "256" "512" "1024")
         optim_list=("adam")
         init_list=("kaiming")
         nonlin_list=("elu")

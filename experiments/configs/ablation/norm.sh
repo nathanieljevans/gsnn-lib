@@ -41,7 +41,7 @@ SEARCHSPACE="norm_ablation"             # options: 'large', 'small' ... (number 
 
 # SLURM settings (node request parameters)
 GSNN_TIME=24:00:00
-GSNN_MEM=32G
+GSNN_MEM=48G
 
 NN_TIME=00:00:00
 NN_MEM=0G
