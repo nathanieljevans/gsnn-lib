@@ -11,7 +11,7 @@ PROC_DIR=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/data_proc/
 EXTDATA=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/extdata/
 
 # Experiment details 
-NAME=exp1
+NAME=NormAblation
 DATA=/home/exacloud/gscratch/mcweeney_lab/evans/data/
 OUT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
