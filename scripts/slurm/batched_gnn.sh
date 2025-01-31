@@ -3,7 +3,7 @@
 # ./batched_gnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N
 # ./batched_gnn.sh ../output/exp1-1/proc/ ../output/gnn_test/ 10 00:30:00 12G 10
 
-ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
+ROOT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/training/
 
 #######################################################
 #######################################################

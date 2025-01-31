@@ -6,14 +6,14 @@
 
 ########## PARAMS #########
 
-SCRIPT_DIR=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/slurm/
-PROC_DIR=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/data_proc/
-EXTDATA=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/extdata/
+SCRIPT_DIR=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/slurm/
+PROC_DIR=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/data_proc/
+EXTDATA=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/extdata/
 
 # Experiment details 
 NAME=exp1
-DATA=/home/exacloud/gscratch/NGSdev/evans/data/
-OUT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/output/$NAME/
+DATA=/home/exacloud/gscratch/mcweeney_lab/evans/data/
+OUT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
 EPOCHS=100
 

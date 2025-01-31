@@ -3,7 +3,7 @@
 # ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N $RAND $SS
 # ./batched_gsnn.sh ../output/exp1-1/proc/ ../output/gpu_test/ 10 00:10:00 8G 10 --randomize
 
-ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
+ROOT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/training/
 
 #######################################################
 #######################################################

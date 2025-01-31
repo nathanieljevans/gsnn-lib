@@ -4,7 +4,7 @@
 # ./batched_nn.sh ../output/exp1-1/proc/ ../output/nn_test/ 10 00:10:00 8G
 # NOTE: we run this on CPU to conserve priority (tractable on cpu)
 
-ROOT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/scripts/training/
+ROOT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/training/
 
 #######################################################
 #######################################################
