@@ -15,14 +15,23 @@ def get_interactions(extdata_dir, sources, func_names):
         inclusion += 1.*targets.in_clue.values 
     else: 
         print('clue DTIs will not be included in prior knowledge')
+
     if 'targetome' in sources:
         inclusion += 1.*targets.in_targetome.values 
     else: 
         print('targetome DTIs will not be included in prior knowledge')
+
+    if 'targetome_expanded' in sources:
+        inclusion += 1.*targets.in_targetome_expanded.values 
+    else: 
+        print('targetome_expanded DTIs will not be included in prior knowledge')
+
     if 'stitch' in sources:
         inclusion += 1.*targets.in_stitch.values 
     else: 
         print('stitch DTIs will not be included in prior knowledge')
+
+
     targets = targets[inclusion > 0] # select targets that are in our included datasets
     print(f'DTIs retained: {np.sum(1.*(inclusion > 0))}/{len(inclusion)}')
 

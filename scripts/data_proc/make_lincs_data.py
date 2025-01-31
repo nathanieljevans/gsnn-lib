@@ -2,8 +2,8 @@
 examples: 
 
 # all lines, all drugs, all lincs [no methyl]
-python make_lincs_data.py --data ../../../data/ --out ../../proc/lincs/ --dti_sources targetome
-python create_data_splits.py --data ../../../data/ --proc ../../proc/lincs/
+python make_lincs_data.py --data ../../../data/ --out ../../proc/lincs/ --dti_sources targetome --omics expr
+python create_lincs_splits.py --data ../../../data/ --proc ../../proc/lincs/
 '''
 
 import argparse 
@@ -35,7 +35,7 @@ def get_args():
     parser.add_argument("--out",                type=str,               default='../../proc/lincs/',                help="path to data directory")
     parser.add_argument("--extdata",            type=str,               default='../../extdata/',                   help="path to data directory")
     parser.add_argument('--feature_space',      nargs='+',              default=['landmark'],                       help='lincs feature space [landmark, best-inferred, inferred]')
-    parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome]')
+    parser.add_argument('--dti_sources',        nargs='+',              default=['clue', 'targetome'],              help='the databases to use for drug target prior knowledge [clue, stitch, targetome, targetome_expanded]')
     parser.add_argument('--drugs',              nargs='+',              default=['none'],                           help='list of drugs to include in the graph')
     parser.add_argument('--lines',              nargs='+',              default=['none'],                           help='list of cell lines to include in the graph')
     parser.add_argument('--lincs',              nargs='+',              default=['none'],                           help='list of lincs genes to include in the graph')

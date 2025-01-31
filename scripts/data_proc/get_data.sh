@@ -117,6 +117,7 @@ nsc2sid="https://wiki.nci.nih.gov/download/attachments/155844992/NSC_PubChemSID.
 
 nci60='https://wiki.nci.nih.gov/download/attachments/147193864/DOSERESP.zip?version=13&modificationDate=1727922354561&api=v2'
 
+
 #######################################################################################################################
 # Download and unpack 
 # NOTE: user should provide a root location for data download using command line argument: 
@@ -170,5 +171,6 @@ date > $ROOT/date_of_download.txt
 [ ! -f "$ROOT/NCI60_dose_response_data.zip" ] && wget $nci60 -O $ROOT/NCI60_dose_response_data.zip
 [ -f "$ROOT/NCI60_dose_response_data.zip" ] && unzip -o $ROOT/NCI60_dose_response_data.zip -d $ROOT
 [ -f "$ROOT/NCI60_dose_response_data.zip" ] && rm $ROOT/NCI60_dose_response_data.zip
+
 
 echo 'downloads complete'

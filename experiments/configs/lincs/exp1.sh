@@ -15,7 +15,7 @@ NAME=exp1
 DATA=/home/exacloud/gscratch/NGSdev/evans/data/
 OUT=/home/exacloud/gscratch/NGSdev/evans/gsnn-lib/output/$NAME/
 PROC=$OUT/proc/lincs/
-EPOCHS=150
+EPOCHS=100
 
 # Graph construction details
 FEATURE_SPACE=("landmark")		        # options: landmark, best-inferred, inferred [e.g., "landmark best-inferred"]
@@ -23,11 +23,11 @@ DTI_SOURCES=("targetome" "clue") 	    # options: clue, targetome, stitch [e.g., 
 DRUGS='none'					        # broad ids (space separated); "none" will include all valid drugs
 LINCS='none'					        # uniprot lincs outputs (space separated); "none" will include all valid lincs
 CELL_LINES='none'					    # cell lines (LINCS `cell_iname`) (space separated); "none" will include all valid lines
-OMICS=('expr')		                    # which omics to include
-OMICS_Q_FILTER=0.1				        # omics with the std in this quantile will not be included in the graph (remove low variance features)
+OMICS=('expr' 'mut')		            # which omics to include
+OMICS_Q_FILTER=0.25				        # omics with the std in this quantile will not be included in the graph (remove low variance features)
 TIME=24							        # LINCS measurement time (hours); [recommend: 24; options: 6, 24, 48, 72]
 FILTER_DEPTH=10					        # Primary criteria for molecular entity inclusion. 
-MIN_OBS_PER_DRUG=50			            # number of observations per drug for drug to be included in observations and graph
+MIN_OBS_PER_DRUG=100			        # number of observations per drug for drug to be included in observations and graph
 UNDIRECTED=''					        # whether to make the function->function graph undirected [option: '', '--undirected']
 
 # partition split details 
@@ -36,7 +36,7 @@ VAL_PROP=0.1					        # proportion of data to hold out for validation
 N_FOLDS=5						        # number of outer folds to create
 
 # Hyper-parameter search budget 
-N=500 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
+N=100 							        # number of parameter configurations to test (randomly sampled); see `batched_xxx.sh` for details on which params to test
 SEARCHSPACE="large"                     # options: 'large', 'small' (number of hyper-parameters to test)
 
 # SLURM settings (node request parameters)

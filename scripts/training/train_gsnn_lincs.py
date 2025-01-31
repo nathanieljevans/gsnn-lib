@@ -85,7 +85,10 @@ def get_args():
                         help="epoch patience for early stopping")
     parser.add_argument("--min_delta", type=float, default=0.001,
                         help="minimum improvement for early stopping")
-
+    parser.add_argument("--prune_every", type=int, default=None,
+                        help="prune network weights every n epochs")
+    parser.add_argument("--prune_threshold", type=float, default=1e-2,
+                        help="pruning threshold; weights with absolute value less than this will be removed during training")
     args = parser.parse_args()
     return args
 
@@ -134,9 +137,10 @@ def train_fold(args, fold, out_dir, data, condinfo, device):
     args.n_params = n_params
     print('# params', n_params)
 
-    optim = utils.get_optim(args.optim)(model.parameters(), lr=args.lr, weight_decay=args.wd)
+    optim = utils.get_optim(args.optim)
+    optim_params = {'lr':args.lr, 'weight_decay':args.wd}
     crit  = utils.get_crit(args.crit)()
-    scheduler = utils.get_scheduler(optim, args, train_loader)
+    scheduler = None
     logger = utils.TBLogger(out_dir + '/tb/')
     stopper = EarlyStopper(patience=args.patience, min_delta=args.min_delta)
 
@@ -144,11 +148,14 @@ def train_fold(args, fold, out_dir, data, condinfo, device):
     trainer = GSNNTrainer(
         model=model,
         optimizer=optim,
+        optim_params=optim_params,
         criterion=crit,
         device=device,
         logger=logger,
         scheduler=scheduler,
-        early_stopper=stopper
+        early_stopper=stopper,
+        prune_every=args.prune_every, 
+        prune_threshold=args.prune_threshold
     )
 
     # Train the model

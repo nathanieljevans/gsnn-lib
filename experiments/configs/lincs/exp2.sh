@@ -50,4 +50,9 @@ NN_MEM=32G
 GNN_TIME=24:00:00
 GNN_MEM=32G
 
+RUN_GSNN=1
+RUN_GSNN_RAND=0
+RUN_NN=1
+RUN_GNN=0
+
 ###########################
