@@ -64,6 +64,25 @@ then
         init_list=("kaiming")
         nonlin_list=("elu")
         checkpoint_list=("--checkpoint")
+
+elif [[ "$SS" == "init_ablation" ]]
+# 2x2x3x6x4=288
+then
+        lr_list=("5e-3")
+        do_list=("0")
+        c_list=("3" "6")
+        lay_list=("10")
+        ase_list=("--add_function_self_edges")
+        share_list=("")
+        norm_list=("batch")
+        bias_list=("")
+        wd_list=("0")
+        batch_list=("512")
+        optim_list=("adam")
+        init_list=("xavier" "kaiming" "lecun" "normal")
+        nonlin_list=("elu" "gelu" "prelu" "mish")
+        checkpoint_list=("--checkpoint")
+
 fi
 
 #######################################################
