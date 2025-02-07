@@ -196,7 +196,7 @@ python train_gsnn_lincs.py --data $PROC \
                      --optim $optimm \
                      --init $init \
                      --nonlin $nonlin \
-                     --randomization $random \
+                     --randomize $random \
                      $share $ase $bias $chkpt
 
 EOF
