@@ -28,6 +28,12 @@ from gsnn_lib.proc.omnipath.utils import filter_func_nodes
 from gsnn_lib.proc import omnipath
 from gsnn_lib.proc import dti
 
+
+__BLOOD_LINES__ = ['BJAB', 'HBL1', 'TMD8', 'PHH', 'U266B1', 'HL60', 'K562', 'TF1',
+                        'THP1', 'MINO', 'U937', 'JURKAT', 'NALM6', 'PL21', 'OCILY19',
+                        'SUDHL4', 'WSUDLCL2', 'KMS34', 'NOMO1', 'SKM1', 'OCILY3']
+
+
 def get_args(): 
     parser = argparse.ArgumentParser()
 
@@ -39,7 +45,7 @@ def get_args():
     parser.add_argument('--drugs',              nargs='+',              default=['none'],                           help='list of drugs to include in the graph')
     parser.add_argument('--lines',              nargs='+',              default=['none'],                           help='list of cell lines to include in the graph')
     parser.add_argument('--lincs',              nargs='+',              default=['none'],                           help='list of lincs genes to include in the graph')
-    parser.add_argument('--omics',              nargs='+',              default=['mut', 'methyl', 'expr', 'cnv'],   help='list of lincs genes to include in the graph')
+    parser.add_argument('--omics',              nargs='+',              default=['mut', 'expr'],                    help='list of lincs genes to include in the graph')
     parser.add_argument('--omics_q_filter',     type=float,             default=0.25,                               help='features with variance in the `q` quantile will be removed (remove low variance features)')
     parser.add_argument("--time",               type=float,             default=24.,                                help="the time point to predict expression changes for")
     parser.add_argument("--filter_depth",       type=int,               default=10,                                 help="the depth to search for upstream drugs and downstream lincs in the node filter process")
@@ -48,6 +54,7 @@ def get_args():
     parser.add_argument("--N_false_dti_edges",  type=int,               default=0,                                  help="number of false drug-> function edges to add to the graph")
     parser.add_argument('--dose_epsilon',       type=float,             default=1e-6,                               help='scaling parameter for dose transformation')
     parser.add_argument('--norm',               type=str,               default='zscore',                           help='normalization method for omics [zscore, minmax, none]')
+    parser.add_argument("--exclude_blood_lines",action='store_true',    default=False,                              help="remove all cell lines derived from blood cells")
 
     args = parser.parse_args() 
 
@@ -104,6 +111,11 @@ if __name__ == '__main__':
     line_candidates = None
     for om, di in _omics.items(): 
         line_candidates = set(di['df'].index.tolist()) if line_candidates is None else line_candidates.intersection(set(di['df'].index.tolist()))
+    
+    if args.exclude_blood_lines: 
+        print('excluding blood lines from cell line candidates...')
+        line_candidates = [x for x in line_candidates if x not in __BLOOD_LINES__]
+    
     print('# of cell line candidates (from omics):', len(line_candidates))
 
     if args.lines is None: 
@@ -338,39 +350,32 @@ if __name__ == '__main__':
     col_cp            = np.array(hdf_cp['0']['META']['COL']['id'][...].astype('str'))       # lincs sample ids 
     row_cp            = hdf_cp['0']['META']['ROW']['id'][...].astype(int)                   # gene ids 
 
-    print()
-    print('# obs grouped by cell line: ')
-    print(siginfo.groupby('cell_iname').count()[['sig_id']].sort_values(by='sig_id', ascending=False).head(25))
-    print()
-
-    print()
-    print('# obs grouped by drug: ')
-    print(siginfo.groupby('pert_id').count()[['sig_id']].sort_values(by='sig_id', ascending=False).head(25))
-    print()
-
-    print()
-    print('# obs grouped by dose: ')
-    print(siginfo.groupby('pert_dose').count()[['sig_id']].sort_values(by='sig_id', ascending=False).head(10))
-    print()
-
     sig_ids = np.unique(siginfo.sig_id.values)
-
     os.makedirs(args.out, exist_ok=True)
     torch.save(sig_ids, args.out + '/sig_ids.pt')
 
     # convert gene ids to uniprot 
     gene2uni = get_geneid2uniprot(args)
+    uni2gene = {v:k for k,v in gene2uni.items()}
 
+    # BUG FIX: gene id  -> row_idxs was ordered differently than the lincs space, fixed 2/6/25. 
     print('create hdf row idx...')
     row_idxs = []
-    for i,gid in enumerate(row_cp): 
-        if gid in gene2uni: 
-            uid = gene2uni[gid]
-            if ("LINCS__" + uid) in lincs_space: 
-                row_idxs.append(i)
+    row_uni_names = []
+    row_cp = list(row_cp.ravel())
+    for lincs in lincs_space:
+        lincs_uniprot = lincs.split('__')[1]
+        lincs_geneid = uni2gene[lincs_uniprot]
+        if lincs_geneid in row_cp: 
+            row_idxs.append(row_cp.index(lincs_geneid))
+            row_uni_names.append(lincs)
+        else: 
+            raise ValueError(f'gene id {lincs_geneid} not found in lincs hdf row idxs')
+
     row_idxs = np.array(row_idxs).ravel()
 
     assert len(row_idxs) == len(lincs_space), 'the lincs hdf row idxs have a different number of items as the provided lincs space; probably error with geneid -> uniprot conversion'
+    assert (np.array(row_uni_names) == np.array(lincs_space)).all(), 'the lincs hdf row idxs have a different order than the provided lincs space'
 
     print('create hdf col idxs...')
     sigid2idx = {sid:i for i,sid in enumerate(col_cp)}
@@ -382,11 +387,10 @@ if __name__ == '__main__':
 
     print('total number of lincs observations (sig_ids):', len(sig_ids))
 
-    # TODO: I want to average the data within condition ( cell, drug, dose )
-    # we will need to get the sig_ids for each condition, load the data into memory, average it, assign a new id (condition)
-    # we will need to also make a new siginfo file that maps condition to set of sigids as well as the condition parameters themselves 
-    # this files should be saved to `out`
-    #conditions = siginfo[['cell_iname', 'pert_id', 'pert_dose', 'sig_id']].groupby(['cell_iname', 'pert_id', 'pert_dose']).agg(lambda x: list(x)).reset_index()
+    # NOTE: average the data within condition ( cell, drug, dose )
+    # get the sig_ids for each condition, load the data into memory, average it, assign a new id (condition)
+    # make a new siginfo file that maps condition to set of sigids as well as the condition parameters themselves 
+    # files should be saved to `out`
     # Average the data within each condition (cell, drug, dose)
     # First, group siginfo by condition
     conditions = (
@@ -447,6 +451,8 @@ if __name__ == '__main__':
     # Perform normalization on the averaged dataset
     if args.norm == 'zscore':
         # NOTE: this normalizes across all LINCS genes (not within gene)
+        # data is scaled betweeen -10 and 10, and is nearly centered 
+        # so this step will scale the upper and lower limits such that std is 1 
         mu = dataset.mean()
         std = dataset.std()
         transform = lambda x: (x - mu) / (std + 1e-8)

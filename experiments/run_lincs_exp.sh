@@ -33,6 +33,7 @@ python $PROC_DIR/make_lincs_data.py --data $DATA \
 					--time $TIME \
 					--filter_depth $FILTER_DEPTH \
 					--min_obs_per_drug $MIN_OBS_PER_DRUG \
+					$EXCLUDE_BLOOD_LINES \
 					$UNDIRECTED #>> $PROC/make_lincs_data.out
 
 python $PROC_DIR/create_lincs_splits.py --data $DATA \
@@ -44,12 +45,8 @@ python $PROC_DIR/create_lincs_splits.py --data $DATA \
 # perform MC hyper-parameter search
 
 if [ "$RUN_GSNN" -eq 1 ]; then 
-	$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N "" $SEARCHSPACE
+	$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N $SEARCHSPACE
 fi
-
-if [ "$RUN_GSNN_RAND" -eq 1 ]; then 
-	$SCRIPT_DIR/batched_gsnn.sh $PROC $OUT $EPOCHS $GSNN_TIME $GSNN_MEM $N --randomize $SEARCHSPACE
-fi 
 
 if [ "$RUN_NN" -eq 1 ]; then 
 	$SCRIPT_DIR/batched_nn.sh $PROC $OUT $EPOCHS $NN_TIME $NN_MEM $N $SEARCHSPACE

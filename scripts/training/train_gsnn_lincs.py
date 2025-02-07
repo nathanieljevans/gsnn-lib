@@ -39,8 +39,8 @@ def get_args():
                         help="number of workers for dataloaders")
     parser.add_argument("--epochs", type=int, default=100,
                         help="number of training epochs")
-    parser.add_argument("--randomize", action='store_true',
-                        help="whether to randomize the structural graph")
+    parser.add_argument("--randomize", type=str, default='none', 
+                        help="randomization strategy [option: graph, outputs, inputs:all, inputs:drugs, inputs:omics]")
     parser.add_argument("--ignore_cuda", action='store_true',
                         help="whether to ignore available cuda GPU")
     parser.add_argument("--channels", type=int, default=3,
@@ -100,13 +100,37 @@ def train_fold(args, fold, out_dir, data, condinfo, device):
 
     split_dict = torch.load(f'{args.data}/{args.fold_dir}/{fold}')
 
-    train_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['train_obs'], data=data, cond_meta=condinfo)
+    n_inputs = len(data.node_names_dict['input'])
+    n_outputs = len(data.node_names_dict['output'])
+    if args.randomize == 'inputs:all':
+        input_shuffle_idxs = np.random.permutation(n_inputs)
+        output_shuffle_idxs = None
+    elif args.randomize == 'inputs:drugs':
+        inputs_drug_mask = np.array(['DRUG__' in x for x in data.node_names_dict['input']])
+        n_drugs = inputs_drug_mask.sum()
+        input_shuffle_idxs = np.arange(n_inputs)
+        input_shuffle_idxs[inputs_drug_mask] = np.random.permutation(n_drugs)
+        output_shuffle_idxs = None 
+    elif args.randomize == 'inputs:omics':
+        inputs_omics_mask = np.array(['DRUG__' not in x for x in data.node_names_dict['input']])
+        n_omics = inputs_omics_mask.sum()
+        input_shuffle_idxs = np.arange(n_inputs)
+        input_shuffle_idxs[inputs_omics_mask] = np.random.permutation(n_omics)
+        output_shuffle_idxs = None 
+    elif args.randomize == 'outputs':
+        input_shuffle_idxs = None
+        output_shuffle_idxs = np.random.permutation(n_outputs)
+    else:
+        input_shuffle_idxs = None
+        output_shuffle_idxs = None
+
+    train_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['train_obs'], data=data, cond_meta=condinfo, input_shuffle_idxs=input_shuffle_idxs, output_shuffle_idxs=output_shuffle_idxs)
     train_loader = DataLoader(train_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=True, persistent_workers=True)
 
-    test_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['test_obs'], data=data, cond_meta=condinfo)
+    test_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['test_obs'], data=data, cond_meta=condinfo, input_shuffle_idxs=input_shuffle_idxs, output_shuffle_idxs=output_shuffle_idxs)
     test_loader = DataLoader(test_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=False)
 
-    val_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['val_obs'], data=data, cond_meta=condinfo)
+    val_dataset = LincsDataset(root=f'{args.data}', cond_ids=split_dict['val_obs'], data=data, cond_meta=condinfo, input_shuffle_idxs=input_shuffle_idxs, output_shuffle_idxs=output_shuffle_idxs)
     val_loader = DataLoader(val_dataset, batch_size=args.batch, num_workers=args.workers, shuffle=False)
 
     print('train:', len(train_dataset), 'test:', len(test_dataset), 'val:', len(val_dataset))
@@ -224,7 +248,8 @@ if __name__ == '__main__':
 
     # optionally randomize graph
     # NOTE: all folds will have the same randomized graph structure
-    if args.randomize: data.edge_index_dict = utils.randomize(data)
+    if args.randomize == 'graph': 
+        data.edge_index_dict = utils.randomize(data)
 
     folds = np.sort([x for x in os.listdir(f'{args.data}/{args.fold_dir}') if 'lincs' in x])
     print('# folds:', len(folds))

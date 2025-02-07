@@ -1,7 +1,7 @@
 #!/bin/zsh
 # example use:
-# ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N $RAND $SS
-# ./batched_gsnn.sh ../output/exp1-1/proc/ ../output/gpu_test/ 10 00:10:00 8G 10 --randomize
+# ./batched_gsnn.sh $PROC $OUT $EPOCHS $TIME $MEM $N $SS
+# ./batched_gsnn.sh ../output/exp1-1/proc/ ../output/gpu_test/ 10 00:10:00 8G 10
 
 ROOT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/training/
 
@@ -10,7 +10,7 @@ ROOT=/home/exacloud/gscratch/mcweeney_lab/evans/gsnn-lib/scripts/training/
 ###            HYPER-PARAMETER SEARCH SPACE         ###
 #######################################################
 #######################################################
-SS=$8
+SS=$7
 if [[ "$SS" == "large" ]]
 #2x3x2x2x6x2x2x2x3x2=6912
 then 
@@ -28,6 +28,7 @@ then
         init_list=("kaiming" "xavier" "lecun")
         nonlin_list=("elu" "prelu")
         checkpoint_list=("--checkpoint")
+        random_list=("none")
 
 elif [[ "$SS" == "small" ]]
 #2x3x3x2x2=72
@@ -46,27 +47,28 @@ then
         init_list=("kaiming")
         nonlin_list=("elu")
         checkpoint_list=("--checkpoint")
+        random_list=("none")
 
 elif [[ "$SS" == "norm_ablation" ]]
 # 2x2x3x6x4=288
 then
         lr_list=("1e-2" "1e-3")
-        do_list=("0" "0.1")
-        c_list=("2" "4" "8")
+        do_list=("0")
+        c_list=("3" "6" "9")
         lay_list=("10")
         ase_list=("--add_function_self_edges")
         share_list=("")
-        norm_list=("none" "batch" "layer" "softmax" "groupbatch" "edgebatch")
+        norm_list=("none" "batch" "layer" "softmax" "edgebatch")
         bias_list=("")
         wd_list=("0")
-        batch_list=("124" "256" "512" "1024")
+        batch_list=("256" "512" "1024")
         optim_list=("adam")
         init_list=("kaiming")
         nonlin_list=("elu")
         checkpoint_list=("--checkpoint")
+        random_list=("none")
 
 elif [[ "$SS" == "init_ablation" ]]
-# 2x2x3x6x4=288
 then
         lr_list=("5e-3")
         do_list=("0")
@@ -82,6 +84,25 @@ then
         init_list=("xavier" "kaiming" "lecun" "normal")
         nonlin_list=("elu" "gelu" "prelu" "mish")
         checkpoint_list=("--checkpoint")
+        random_list=("none")
+
+elif [[ "$SS" == "rand_ablation" ]]
+then
+        lr_list=("5e-3")
+        do_list=("0")
+        c_list=("3" "6")
+        lay_list=("10")
+        ase_list=("--add_function_self_edges")
+        share_list=("")
+        norm_list=("batch")
+        bias_list=("")
+        wd_list=("0")
+        batch_list=("512")
+        optim_list=("adam")
+        init_list=("kaiming")
+        nonlin_list=("elu")
+        checkpoint_list=("--checkpoint")
+        random_list=("none" "graph" "inputs:all" "inputs:drugs" "inputs:omics" "outputs")
 
 fi
 
@@ -106,7 +127,6 @@ echo "EPOCHS=$EPOCHS"
 echo "TIME=$TIME"
 echo "MEM=$MEM" 
 echo "N=$N"
-echo "RAND=$RAND"
 echo "#######################################"
 
 # MAKE output directory in case it doesn't exist
@@ -139,10 +159,11 @@ for ((i=1; i<=N; i++)); do
         init=$(echo "${init_list[@]}" | tr ' ' '\n' | shuf -n 1)
         nonlin=$(echo "${nonlin_list[@]}" | tr ' ' '\n' | shuf -n 1)
         chkpt=$(echo "${checkpoint_list[@]}" | tr ' ' '\n' | shuf -n 1)
+        random=$(echo "${random_list[@]}" | tr ' ' '\n' | shuf -n 1)
 
         jobid=$((jobid+1))
 
-        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch, optim=$optimm, init=$init, nonlin=$nonlin, chkpt=$chkpt)"
+        echo "submitting job: GSNN (lr=$lr, do=$do, c=$c, lay=$lay, ase=$ase, share=$share, norm=$norm, bias=$bias, wd=$wd, batch=$batch, optim=$optimm, init=$init, nonlin=$nonlin, chkpt=$chkpt, random=$random)"
 
         # SUBMIT SBATCH JOB 
 
@@ -175,7 +196,8 @@ python train_gsnn_lincs.py --data $PROC \
                      --optim $optimm \
                      --init $init \
                      --nonlin $nonlin \
-                     $share $ase $RAND $bias $chkpt
+                     --randomization $random \
+                     $share $ase $bias $chkpt
 
 EOF
 done

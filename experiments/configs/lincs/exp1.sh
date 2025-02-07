@@ -30,6 +30,7 @@ TIME=24							        # LINCS measurement time (hours); [recommend: 24; options:
 FILTER_DEPTH=10					        # Primary criteria for molecular entity inclusion. 
 MIN_OBS_PER_DRUG=100			        # number of observations per drug for drug to be included in observations and graph
 UNDIRECTED=''					        # whether to make the function->function graph undirected [option: '', '--undirected']
+EXCLUDE_BLOOD_LINES='--exclude_blood_lines'                 # exclude blood cell lines from the data 
 
 # partition split details 
 HOLD_OUT='cell-drug'			        # how to create hold-out sets [options: 'cell-drug', 'cell']. 'cell' will hold out cell lines, 'cell-drug' will hold out cell-drug keys. 
@@ -51,7 +52,6 @@ GNN_TIME=00:00:00
 GNN_MEM=0G
 
 RUN_GSNN=1
-RUN_GSNN_RAND=0
 RUN_NN=0
 RUN_GNN=0
 
